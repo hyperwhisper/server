@@ -127,7 +127,7 @@ export function useAuth() {
     try {
       // Try with in-memory token first, fall back to cookie
       const headers: Record<string, string> = {}
-      if (accessToken.value) {
+      if (accessToken.value && accessToken.value !== 'cookie') {
         headers.Authorization = `Bearer ${accessToken.value}`
       }
 
@@ -138,6 +138,10 @@ export function useAuth() {
 
       if (response) {
         user.value = response
+        // If we succeeded without an in-memory token, we're using cookie auth
+        if (!accessToken.value) {
+          accessToken.value = 'cookie' // Placeholder to indicate cookie-based auth
+        }
         return true
       }
 
@@ -147,23 +151,23 @@ export function useAuth() {
     }
   }
 
-  // Initialize auth state (try refresh token first to get proper token management)
+  // Initialize auth state (try access token cookie first, then refresh if needed)
   const initAuth = async (): Promise<void> => {
     if (isInitialized.value) return
 
-    // Try to refresh first - this gives us a proper access token with known expiry
-    // The refresh token cookie is HttpOnly and sent automatically
-    const refreshed = await refreshAccessToken()
+    // First, try to use existing access token cookie via /me endpoint
+    const userFetched = await fetchUser()
 
-    if (refreshed) {
-      // We have a valid access token now, fetch user info
-      await fetchUser()
+    if (userFetched) {
+      // Access token cookie is valid, schedule a refresh before it expires
+      // Since we don't know exact expiry, refresh in 60 seconds to get proper token management
+      scheduleTokenRefresh(60)
     } else {
-      // Refresh failed, try access token cookie directly (might still be valid)
-      const userFetched = await fetchUser()
-      if (userFetched) {
-        // Access token cookie is valid, schedule a refresh soon
-        scheduleTokenRefresh(60)
+      // Access token invalid/expired, try refresh token
+      const refreshed = await refreshAccessToken()
+      if (refreshed) {
+
+        await fetchUser()
       }
     }
 
@@ -182,7 +186,7 @@ export function useAuth() {
 
   // Get authorization headers for API calls
   const getAuthHeaders = (): Record<string, string> => {
-    if (accessToken.value) {
+    if (accessToken.value && accessToken.value !== 'cookie') {
       return { Authorization: `Bearer ${accessToken.value}` }
     }
     return {}
