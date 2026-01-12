@@ -3,17 +3,20 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"hyperwhisper/internal/auth"
 	"hyperwhisper/internal/db"
 	"hyperwhisper/internal/handlers"
+	"hyperwhisper/web"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -83,14 +86,40 @@ func runServe(ctx context.Context, cmd *cli.Command) error {
 	api := e.Group("/api/v1")
 	setupAPIRoutes(api)
 
-	// Proxy non-API requests to Nuxt
-	nuxtURL, _ := url.Parse("http://localhost:3000")
-	proxy := httputil.NewSingleHostReverseProxy(nuxtURL)
+	if dev {
+		// Proxy non-API requests to Nuxt dev server
+		nuxtURL, _ := url.Parse("http://localhost:3000")
+		proxy := httputil.NewSingleHostReverseProxy(nuxtURL)
 
-	e.Any("/*", func(c echo.Context) error {
-		proxy.ServeHTTP(c.Response(), c.Request())
-		return nil
-	})
+		e.Any("/*", func(c echo.Context) error {
+			proxy.ServeHTTP(c.Response(), c.Request())
+			return nil
+		})
+	} else {
+		// Serve embedded static files in production
+		distFS, err := fs.Sub(web.DistFS, "dist")
+		if err != nil {
+			return fmt.Errorf("failed to get embedded dist folder: %w", err)
+		}
+
+		fileServer := http.FileServer(http.FS(distFS))
+
+		e.Any("/*", func(c echo.Context) error {
+			path := c.Request().URL.Path
+
+			// Try to serve the exact file first
+			if f, err := distFS.Open(strings.TrimPrefix(path, "/")); err == nil {
+				f.Close()
+				fileServer.ServeHTTP(c.Response(), c.Request())
+				return nil
+			}
+
+			// For SPA routing, serve index.html for non-file requests
+			c.Request().URL.Path = "/"
+			fileServer.ServeHTTP(c.Response(), c.Request())
+			return nil
+		})
+	}
 
 	// Handle graceful shutdown
 	go func() {
