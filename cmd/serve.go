@@ -11,6 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"hyperwhisper/internal/db"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/urfave/cli/v3"
@@ -43,6 +45,13 @@ func runServe(ctx context.Context, cmd *cli.Command) error {
 	host := cmd.String("api-host")
 	port := cmd.String("api-port")
 	dev := cmd.Bool("dev")
+
+	// Connect to database
+	if err := db.Connect(); err != nil {
+		fmt.Printf("Warning: Could not connect to database: %v\n", err)
+	} else {
+		defer db.Close()
+	}
 
 	var nuxtCmd *exec.Cmd
 
@@ -111,4 +120,33 @@ func setupAPIRoutes(api *echo.Group) {
 	api.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
+
+	api.GET("/ht", healthCheck)
+}
+
+type HealthCheckResponse struct {
+	All bool `json:"all"`
+	DB  bool `json:"db"`
+	API bool `json:"api"`
+}
+
+func healthCheck(c echo.Context) error {
+	response := HealthCheckResponse{
+		API: true,
+		DB:  false,
+		All: false,
+	}
+
+	if err := db.Ping(); err == nil {
+		response.DB = true
+	}
+
+	response.All = response.API && response.DB
+
+	status := http.StatusOK
+	if !response.All {
+		status = http.StatusServiceUnavailable
+	}
+
+	return c.JSON(status, response)
 }

@@ -8,9 +8,21 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      watch: {
+        usePolling: true,
+        interval: 1000,
+      },
+    },
   },
 
-  modules: ["shadcn-nuxt"],
+  modules: ["shadcn-nuxt", "@nuxtjs/color-mode"],
+
+  colorMode: {
+    classSuffix: "",
+    preference: "system",
+    fallback: "light",
+  },
 
   shadcn: {
     /**
