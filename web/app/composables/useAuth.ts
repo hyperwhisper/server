@@ -49,6 +49,7 @@ export function useAuth() {
       const response = await $fetch<AuthResponse>('/api/v1/signup', {
         method: 'POST',
         body: payload,
+        credentials: 'include', // Ensure cookies are set
       })
 
       if (response) {
@@ -70,6 +71,7 @@ export function useAuth() {
       const response = await $fetch<AuthResponse>('/api/v1/signin', {
         method: 'POST',
         body: payload,
+        credentials: 'include', // Ensure cookies are set
       })
 
       if (response) {
@@ -90,6 +92,7 @@ export function useAuth() {
     try {
       await $fetch('/api/v1/signout', {
         method: 'POST',
+        credentials: 'include', // Ensure cookies are cleared
       })
     } catch (e) {
       // Ignore errors, clear local state anyway
@@ -103,6 +106,7 @@ export function useAuth() {
     try {
       const response = await $fetch<TokenRefreshResponse>('/api/v1/token_refresh', {
         method: 'POST',
+        credentials: 'include', // Ensure cookies are sent
       })
 
       if (response) {
@@ -118,15 +122,18 @@ export function useAuth() {
     }
   }
 
-  // Fetch current user
+  // Fetch current user using cookie or in-memory token
   const fetchUser = async (): Promise<boolean> => {
-    if (!accessToken.value) {
-      return false
-    }
-
     try {
+      // Try with in-memory token first, fall back to cookie
+      const headers: Record<string, string> = {}
+      if (accessToken.value) {
+        headers.Authorization = `Bearer ${accessToken.value}`
+      }
+
       const response = await $fetch<User>('/api/v1/me', {
-        headers: { Authorization: `Bearer ${accessToken.value}` },
+        headers,
+        credentials: 'include', // Include cookies
       })
 
       if (response) {
@@ -140,17 +147,37 @@ export function useAuth() {
     }
   }
 
-  // Initialize auth state (try to restore from refresh token)
+  // Initialize auth state (try refresh token first to get proper token management)
   const initAuth = async (): Promise<void> => {
     if (isInitialized.value) return
 
-    // Try to refresh token (cookie will be sent automatically)
+    // Try to refresh first - this gives us a proper access token with known expiry
+    // The refresh token cookie is HttpOnly and sent automatically
     const refreshed = await refreshAccessToken()
+
     if (refreshed) {
+      // We have a valid access token now, fetch user info
       await fetchUser()
+    } else {
+      // Refresh failed, try access token cookie directly (might still be valid)
+      const userFetched = await fetchUser()
+      if (userFetched) {
+        // Access token cookie is valid, schedule a refresh soon
+        scheduleTokenRefresh(60)
+      }
     }
 
     isInitialized.value = true
+  }
+
+  // Schedule a token refresh after given seconds
+  const scheduleTokenRefresh = (seconds: number) => {
+    if (refreshTimer) {
+      clearTimeout(refreshTimer)
+    }
+    refreshTimer = setTimeout(() => {
+      refreshAccessToken()
+    }, seconds * 1000)
   }
 
   // Get authorization headers for API calls

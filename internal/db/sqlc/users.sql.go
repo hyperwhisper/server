@@ -7,6 +7,8 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -31,6 +33,88 @@ func (q *Queries) CheckUsernameExists(ctx context.Context, username string) (boo
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const cleanupExpiredRefreshTokens = `-- name: CleanupExpiredRefreshTokens :exec
+DELETE FROM tokens WHERE expires_at <= NOW()
+`
+
+func (q *Queries) CleanupExpiredRefreshTokens(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, cleanupExpiredRefreshTokens)
+	return err
+}
+
+const countActiveRefreshTokens = `-- name: CountActiveRefreshTokens :one
+SELECT COUNT(*) FROM tokens WHERE revoked_at IS NULL AND expires_at > NOW()
+`
+
+func (q *Queries) CountActiveRefreshTokens(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveRefreshTokens)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRefreshTokens = `-- name: CountRefreshTokens :one
+SELECT COUNT(*) FROM tokens
+`
+
+func (q *Queries) CountRefreshTokens(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRefreshTokens)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUserRefreshTokens = `-- name: CountUserRefreshTokens :one
+SELECT COUNT(*) FROM tokens WHERE user_id = $1
+`
+
+func (q *Queries) CountUserRefreshTokens(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserRefreshTokens, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUsers = `-- name: CountUsers :one
+SELECT COUNT(*) FROM users
+`
+
+func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createRefreshToken = `-- name: CreateRefreshToken :one
+
+INSERT INTO tokens (token_jti, user_id, expires_at)
+VALUES ($1, $2, $3)
+RETURNING id, token_jti, user_id, issued_at, expires_at, revoked_at, revoked_reason
+`
+
+type CreateRefreshTokenParams struct {
+	TokenJti  string
+	UserID    uuid.UUID
+	ExpiresAt time.Time
+}
+
+// Refresh token queries (only refresh tokens are tracked, access tokens are stateless)
+func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (Token, error) {
+	row := q.db.QueryRowContext(ctx, createRefreshToken, arg.TokenJti, arg.UserID, arg.ExpiresAt)
+	var i Token
+	err := row.Scan(
+		&i.ID,
+		&i.TokenJti,
+		&i.UserID,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.RevokedReason,
+	)
+	return i, err
 }
 
 const createUser = `-- name: CreateUser :one
@@ -68,6 +152,34 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UserType,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteUser, id)
+	return err
+}
+
+const getRefreshTokenByJTI = `-- name: GetRefreshTokenByJTI :one
+SELECT id, token_jti, user_id, issued_at, expires_at, revoked_at, revoked_reason FROM tokens WHERE token_jti = $1
+`
+
+func (q *Queries) GetRefreshTokenByJTI(ctx context.Context, tokenJti string) (Token, error) {
+	row := q.db.QueryRowContext(ctx, getRefreshTokenByJTI, tokenJti)
+	var i Token
+	err := row.Scan(
+		&i.ID,
+		&i.TokenJti,
+		&i.UserID,
+		&i.IssuedAt,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+		&i.RevokedReason,
 	)
 	return i, err
 }
@@ -141,6 +253,253 @@ SELECT id, username, email, password_hash, first_name, last_name, user_type, cre
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PasswordHash,
+		&i.FirstName,
+		&i.LastName,
+		&i.UserType,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const isRefreshTokenRevoked = `-- name: IsRefreshTokenRevoked :one
+SELECT EXISTS(SELECT 1 FROM tokens WHERE token_jti = $1 AND revoked_at IS NOT NULL)
+`
+
+func (q *Queries) IsRefreshTokenRevoked(ctx context.Context, tokenJti string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isRefreshTokenRevoked, tokenJti)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const listActiveRefreshTokens = `-- name: ListActiveRefreshTokens :many
+SELECT id, token_jti, user_id, issued_at, expires_at, revoked_at, revoked_reason FROM tokens WHERE revoked_at IS NULL AND expires_at > NOW() ORDER BY issued_at DESC LIMIT $1 OFFSET $2
+`
+
+type ListActiveRefreshTokensParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListActiveRefreshTokens(ctx context.Context, arg ListActiveRefreshTokensParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listActiveRefreshTokens, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.TokenJti,
+			&i.UserID,
+			&i.IssuedAt,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+			&i.RevokedReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRefreshTokens = `-- name: ListRefreshTokens :many
+SELECT id, token_jti, user_id, issued_at, expires_at, revoked_at, revoked_reason FROM tokens ORDER BY issued_at DESC LIMIT $1 OFFSET $2
+`
+
+type ListRefreshTokensParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListRefreshTokens(ctx context.Context, arg ListRefreshTokensParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listRefreshTokens, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.TokenJti,
+			&i.UserID,
+			&i.IssuedAt,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+			&i.RevokedReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserRefreshTokens = `-- name: ListUserRefreshTokens :many
+SELECT id, token_jti, user_id, issued_at, expires_at, revoked_at, revoked_reason FROM tokens WHERE user_id = $1 ORDER BY issued_at DESC LIMIT $2 OFFSET $3
+`
+
+type ListUserRefreshTokensParams struct {
+	UserID uuid.UUID
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListUserRefreshTokens(ctx context.Context, arg ListUserRefreshTokensParams) ([]Token, error) {
+	rows, err := q.db.QueryContext(ctx, listUserRefreshTokens, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.TokenJti,
+			&i.UserID,
+			&i.IssuedAt,
+			&i.ExpiresAt,
+			&i.RevokedAt,
+			&i.RevokedReason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, username, email, password_hash, first_name, last_name, user_type, created_at, updated_at FROM users ORDER BY created_at ASC LIMIT $1 OFFSET $2
+`
+
+type ListUsersParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.PasswordHash,
+			&i.FirstName,
+			&i.LastName,
+			&i.UserType,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+UPDATE tokens SET revoked_at = NOW(), revoked_reason = $2 WHERE token_jti = $1
+`
+
+type RevokeRefreshTokenParams struct {
+	TokenJti      string
+	RevokedReason sql.NullString
+}
+
+func (q *Queries) RevokeRefreshToken(ctx context.Context, arg RevokeRefreshTokenParams) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshToken, arg.TokenJti, arg.RevokedReason)
+	return err
+}
+
+const revokeUserRefreshTokens = `-- name: RevokeUserRefreshTokens :exec
+UPDATE tokens SET revoked_at = NOW(), revoked_reason = $2 WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+type RevokeUserRefreshTokensParams struct {
+	UserID        uuid.UUID
+	RevokedReason sql.NullString
+}
+
+func (q *Queries) RevokeUserRefreshTokens(ctx context.Context, arg RevokeUserRefreshTokensParams) error {
+	_, err := q.db.ExecContext(ctx, revokeUserRefreshTokens, arg.UserID, arg.RevokedReason)
+	return err
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE users SET
+    username = COALESCE(NULLIF($2, ''), username),
+    email = COALESCE(NULLIF($3, ''), email),
+    first_name = COALESCE(NULLIF($4, ''), first_name),
+    last_name = COALESCE(NULLIF($5, ''), last_name),
+    user_type = COALESCE(NULLIF($6, ''), user_type),
+    updated_at = NOW()
+WHERE id = $1
+RETURNING id, username, email, password_hash, first_name, last_name, user_type, created_at, updated_at
+`
+
+type UpdateUserParams struct {
+	ID      uuid.UUID
+	Column2 interface{}
+	Column3 interface{}
+	Column4 interface{}
+	Column5 interface{}
+	Column6 interface{}
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUser,
+		arg.ID,
+		arg.Column2,
+		arg.Column3,
+		arg.Column4,
+		arg.Column5,
+		arg.Column6,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,

@@ -13,8 +13,9 @@ const { user } = useAuth()
 <template>
   <div class="min-h-screen bg-white dark:bg-black">
     <AppNavbar />
+    <AdminSidebar />
 
-    <main class="container mx-auto px-4 py-12 pt-24">
+    <main class="container mx-auto px-4 py-12 pt-24 pr-20">
       <div class="max-w-2xl mx-auto text-center">
         <h1 class="text-4xl font-bold mb-4">Welcome to hyperwhisper</h1>
         <p class="text-neutral-600 dark:text-neutral-400 mb-8">

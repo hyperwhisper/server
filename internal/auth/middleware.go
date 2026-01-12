@@ -59,3 +59,26 @@ func GetUserFromContext(c echo.Context) *Claims {
 	}
 	return claims
 }
+
+// AdminMiddleware creates an Echo middleware that ensures user is admin
+// Must be used after JWTMiddleware
+func AdminMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			claims := GetUserFromContext(c)
+			if claims == nil {
+				return c.JSON(http.StatusUnauthorized, map[string]string{
+					"error": "not authenticated",
+				})
+			}
+
+			if claims.UserType != "admin" {
+				return c.JSON(http.StatusForbidden, map[string]string{
+					"error": "admin access required",
+				})
+			}
+
+			return next(c)
+		}
+	}
+}

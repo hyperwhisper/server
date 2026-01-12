@@ -6,9 +6,20 @@ package sqlc
 
 import (
 	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+type Token struct {
+	ID            uuid.UUID
+	TokenJti      string
+	UserID        uuid.UUID
+	IssuedAt      sql.NullTime
+	ExpiresAt     time.Time
+	RevokedAt     sql.NullTime
+	RevokedReason sql.NullString
+}
 
 type User struct {
 	ID           uuid.UUID

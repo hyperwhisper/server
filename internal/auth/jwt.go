@@ -80,6 +80,11 @@ func GenerateTokenPair(userID uuid.UUID, username, email, userType string) (*Tok
 	accessExpiry := getAccessTokenExpiry()
 	refreshExpiry := getRefreshTokenExpiry()
 	secret := getJWTSecret()
+	now := time.Now()
+
+	// Generate unique JTI for each token
+	accessJTI := uuid.New().String()
+	refreshJTI := uuid.New().String()
 
 	// Generate access token
 	accessClaims := &Claims{
@@ -89,8 +94,9 @@ func GenerateTokenPair(userID uuid.UUID, username, email, userType string) (*Tok
 		UserType:  userType,
 		TokenType: AccessToken,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessExpiry)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        accessJTI,
+			ExpiresAt: jwt.NewNumericDate(now.Add(accessExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Subject:   userID.String(),
 		},
 	}
@@ -109,8 +115,9 @@ func GenerateTokenPair(userID uuid.UUID, username, email, userType string) (*Tok
 		UserType:  userType,
 		TokenType: RefreshToken,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshExpiry)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        refreshJTI,
+			ExpiresAt: jwt.NewNumericDate(now.Add(refreshExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Subject:   userID.String(),
 		},
 	}

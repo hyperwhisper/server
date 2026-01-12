@@ -136,6 +136,24 @@ func setupAPIRoutes(api *echo.Group) {
 	protected := api.Group("")
 	protected.Use(auth.JWTMiddleware())
 	protected.GET("/me", authHandler.Me)
+
+	// Admin routes (protected + admin only)
+	admin := api.Group("/admin")
+	admin.Use(auth.JWTMiddleware())
+	admin.Use(auth.AdminMiddleware())
+
+	adminHandler := handlers.NewAdminHandler(db.DB)
+
+	// User management
+	admin.GET("/users", adminHandler.ListUsers)
+	admin.POST("/users", adminHandler.CreateUser)
+	admin.DELETE("/users/:id", adminHandler.DeleteUser)
+
+	// Token management
+	admin.GET("/tokens", adminHandler.ListRefreshTokens)
+	admin.POST("/tokens/revoke", adminHandler.RevokeToken)
+	admin.POST("/tokens/revoke-user/:id", adminHandler.RevokeUserRefreshTokens)
+	admin.POST("/tokens/cleanup", adminHandler.CleanupTokens)
 }
 
 type HealthCheckResponse struct {

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"hyperwhisper/internal/auth"
 	"hyperwhisper/internal/db/sqlc"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -118,6 +120,17 @@ func (h *AuthHandler) SignUp(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to process password"})
 	}
 
+	// Check if this is the first user (make them admin)
+	userCount, err := h.queries.CountUsers(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	userType := "user"
+	if userCount == 0 {
+		userType = "admin"
+	}
+
 	// Create user
 	user, err := h.queries.CreateUser(ctx, sqlc.CreateUserParams{
 		Username:     req.Username,
@@ -125,7 +138,7 @@ func (h *AuthHandler) SignUp(c echo.Context) error {
 		PasswordHash: passwordHash,
 		FirstName:    req.FirstName,
 		LastName:     req.LastName,
-		UserType:     "user",
+		UserType:     userType,
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to create user"})
@@ -135,6 +148,12 @@ func (h *AuthHandler) SignUp(c echo.Context) error {
 	tokens, err := auth.GenerateTokenPair(user.ID, user.Username, user.Email, user.UserType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to generate tokens"})
+	}
+
+	// Store tokens in database
+	if err := h.storeRefreshToken(ctx, user.ID, tokens); err != nil {
+		// Log error but don't fail - tokens are still valid
+		// In production, you might want to handle this differently
 	}
 
 	// Set cookies
@@ -180,6 +199,11 @@ func (h *AuthHandler) SignIn(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to generate tokens"})
 	}
 
+	// Store tokens in database
+	if err := h.storeRefreshToken(ctx, user.ID, tokens); err != nil {
+		// Log error but don't fail - tokens are still valid
+	}
+
 	// Set cookies
 	setAuthCookies(c, tokens)
 
@@ -194,10 +218,20 @@ func (h *AuthHandler) SignIn(c echo.Context) error {
 func (h *AuthHandler) TokenRefresh(c echo.Context) error {
 	var refreshToken string
 
+	// Debug: log all cookies received
+	cookies := c.Cookies()
+	fmt.Printf("[TokenRefresh] Received %d cookies\n", len(cookies))
+	for _, cookie := range cookies {
+		fmt.Printf("[TokenRefresh] Cookie: %s (path: %s)\n", cookie.Name, cookie.Path)
+	}
+
 	// Get refresh token from cookie first
 	cookie, err := c.Cookie("refresh_token")
 	if err == nil {
 		refreshToken = cookie.Value
+		fmt.Printf("[TokenRefresh] Found refresh_token cookie\n")
+	} else {
+		fmt.Printf("[TokenRefresh] No refresh_token cookie: %v\n", err)
 	}
 
 	// Fall back to request body
@@ -219,10 +253,30 @@ func (h *AuthHandler) TokenRefresh(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: err.Error()})
 	}
 
+	ctx := context.Background()
+
+	// Check if refresh token is revoked
+	isRevoked, err := h.queries.IsRefreshTokenRevoked(ctx, claims.ID)
+	if err == nil && isRevoked {
+		clearAuthCookies(c)
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "token has been revoked"})
+	}
+
 	// Generate new token pair
 	tokens, err := auth.GenerateTokenPair(claims.UserID, claims.Username, claims.Email, claims.UserType)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to generate tokens"})
+	}
+
+	// Revoke the old refresh token (single-use)
+	_ = h.queries.RevokeRefreshToken(ctx, sqlc.RevokeRefreshTokenParams{
+		TokenJti:      claims.ID,
+		RevokedReason: sql.NullString{String: "refreshed", Valid: true},
+	})
+
+	// Store new tokens in database
+	if err := h.storeRefreshToken(ctx, claims.UserID, tokens); err != nil {
+		// Log error but don't fail
 	}
 
 	// Set new cookies
@@ -324,7 +378,7 @@ func setAuthCookies(c echo.Context, tokens *auth.TokenPair) {
 	c.SetCookie(&http.Cookie{
 		Name:     "refresh_token",
 		Value:    tokens.RefreshToken,
-		Path:     "/api/v1/token_refresh",
+		Path:     "/api/v1",
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: sameSite,
@@ -344,8 +398,29 @@ func clearAuthCookies(c echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
-		Path:     "/api/v1/token_refresh",
+		Path:     "/api/v1",
 		HttpOnly: true,
 		MaxAge:   -1,
 	})
+}
+
+// storeRefreshToken saves the refresh token to the database for tracking
+func (h *AuthHandler) storeRefreshToken(ctx context.Context, userID uuid.UUID, tokens *auth.TokenPair) error {
+	// Parse refresh token to get JTI and expiry
+	refreshClaims, err := auth.ValidateToken(tokens.RefreshToken, auth.RefreshToken)
+	if err != nil {
+		return err
+	}
+
+	// Store refresh token
+	_, err = h.queries.CreateRefreshToken(ctx, sqlc.CreateRefreshTokenParams{
+		TokenJti:  refreshClaims.ID,
+		UserID:    userID,
+		ExpiresAt: refreshClaims.ExpiresAt.Time,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
