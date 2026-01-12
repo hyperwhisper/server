@@ -10,6 +10,7 @@ useHead({
   title: 'Sign Up - HyperWhisper'
 })
 
+const route = useRoute()
 const { signUp } = useAuth()
 
 const form = reactive<SignUpPayload>({
@@ -43,7 +44,9 @@ const handleSubmit = async () => {
   isLoading.value = false
 
   if (success) {
-    await navigateTo('/dashboard')
+    // Redirect to intended destination or default to dashboard
+    const redirect = route.query.redirect as string
+    await navigateTo(redirect || '/dashboard')
   } else if (error) {
     errorMessage.value = error.error
     if (error.details) {
@@ -159,7 +162,7 @@ const handleSubmit = async () => {
 
           <div class="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?
-            <NuxtLink to="/signin" class="text-primary hover:underline">
+            <NuxtLink :to="{ path: '/signin', query: route.query }" class="text-primary hover:underline">
               Sign in
             </NuxtLink>
           </div>
