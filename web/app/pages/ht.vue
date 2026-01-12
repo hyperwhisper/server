@@ -30,14 +30,7 @@ useHead({
     <!-- Subtle grain texture overlay -->
     <div class="fixed inset-0 opacity-[0.02] dark:opacity-[0.015] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]" />
 
-    <header class="fixed top-0 left-0 right-0 z-50 border-b border-neutral-200 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-sm">
-      <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-        <NuxtLink to="/" class="text-lg font-medium tracking-tight hover:opacity-80 transition-opacity">
-          hyperwhisper
-        </NuxtLink>
-        <ThemeToggle />
-      </div>
-    </header>
+    <AppNavbar />
 
     <main class="min-h-screen flex items-center justify-center px-4 pt-16">
       <div class="w-full max-w-md">

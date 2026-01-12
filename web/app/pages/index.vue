@@ -45,28 +45,7 @@ onMounted(() => {
     <!-- Subtle grain texture overlay -->
     <div class="fixed inset-0 opacity-[0.02] dark:opacity-[0.015] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]" />
 
-    <header class="fixed top-0 left-0 right-0 z-50 border-b border-neutral-200 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-sm">
-      <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-        <span class="text-lg font-medium tracking-tight">hyperwhisper</span>
-        <nav class="flex items-center gap-4 sm:gap-6">
-          <a
-            href="https://github.com/hyperwhisper"
-            target="_blank"
-            rel="noopener"
-            class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors hidden sm:block"
-          >
-            GitHub
-          </a>
-          <NuxtLink
-            to="/ht"
-            class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors hidden sm:block"
-          >
-            Status
-          </NuxtLink>
-          <ThemeToggle />
-        </nav>
-      </div>
-    </header>
+    <AppNavbar />
 
     <main class="relative">
       <!-- Hero Section -->

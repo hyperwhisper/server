@@ -11,7 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"hyperwhisper/internal/auth"
 	"hyperwhisper/internal/db"
+	"hyperwhisper/internal/handlers"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -122,6 +124,18 @@ func setupAPIRoutes(api *echo.Group) {
 	})
 
 	api.GET("/ht", healthCheck)
+
+	// Auth routes (public)
+	authHandler := handlers.NewAuthHandler(db.DB)
+	api.POST("/signup", authHandler.SignUp)
+	api.POST("/signin", authHandler.SignIn)
+	api.POST("/token_refresh", authHandler.TokenRefresh)
+	api.POST("/signout", authHandler.SignOut)
+
+	// Protected routes
+	protected := api.Group("")
+	protected.Use(auth.JWTMiddleware())
+	protected.GET("/me", authHandler.Me)
 }
 
 type HealthCheckResponse struct {
