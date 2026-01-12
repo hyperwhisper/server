@@ -1,4 +1,4 @@
-export default defineNuxtRouteMiddleware(async () => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const { isAuthenticated, isInitialized, initAuth } = useAuth()
 
   // Initialize auth if not done
@@ -6,8 +6,9 @@ export default defineNuxtRouteMiddleware(async () => {
     await initAuth()
   }
 
-  // Redirect to dashboard if already authenticated
+  // Redirect to intended destination or dashboard if already authenticated
   if (isAuthenticated.value) {
-    return navigateTo('/dashboard')
+    const redirect = to.query.redirect as string
+    return navigateTo(redirect || '/dashboard')
   }
 })
