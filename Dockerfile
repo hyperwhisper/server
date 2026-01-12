@@ -13,7 +13,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /app/web/dist ./web/dist
-RUN go build -o hweb .
+RUN go build -tags prod -o hweb .
 
 # Runtime
 FROM debian:trixie-slim
