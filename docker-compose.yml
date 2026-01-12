@@ -1,0 +1,9 @@
+services:
+  bun:
+    image: oven/bun:1.3.5-slim
+    volumes:
+      - ./web:/home/bun/app
+    ports:
+      - "3000:3000"
+    user: bun
+    command: bun run dev
