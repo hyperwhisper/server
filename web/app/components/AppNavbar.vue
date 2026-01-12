@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Github, Activity, LogOut } from 'lucide-vue-next'
 
+const route = useRoute()
 const { isAuthenticated, isInitialized, signOut, initAuth } = useAuth()
 
 // Initialize auth on component mount
@@ -13,6 +14,8 @@ onMounted(async () => {
 const handleSignOut = async () => {
   await signOut()
 }
+
+const isOnDashboard = computed(() => route.path === '/dashboard')
 </script>
 
 <template>
@@ -32,7 +35,7 @@ const handleSignOut = async () => {
           <Github class="size-5" />
         </a>
         <NuxtLink
-          to="/ht"
+          to="/health"
           class="p-2 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
           title="Status"
         >
@@ -43,10 +46,19 @@ const handleSignOut = async () => {
         <!-- Auth button -->
         <template v-if="isInitialized">
           <template v-if="isAuthenticated">
-            <Button size="sm" variant="ghost" @click="handleSignOut">
-              <LogOut class="size-4 mr-2" />
-              Sign Out
-            </Button>
+            <template v-if="isOnDashboard">
+              <Button size="sm" variant="ghost" @click="handleSignOut">
+                <LogOut class="size-4 mr-2" />
+                Sign Out
+              </Button>
+            </template>
+            <template v-else>
+              <NuxtLink to="/dashboard">
+                <Button size="sm">
+                  Dashboard
+                </Button>
+              </NuxtLink>
+            </template>
           </template>
           <template v-else>
             <NuxtLink to="/signin">

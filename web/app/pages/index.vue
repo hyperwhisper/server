@@ -164,7 +164,7 @@ onMounted(() => {
           <a href="https://github.com/hyperwhisper" target="_blank" rel="noopener" class="hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors">
             GitHub
           </a>
-          <NuxtLink to="/ht" class="hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors">
+          <NuxtLink to="/health" class="hover:text-neutral-700 dark:hover:text-neutral-400 transition-colors">
             Status
           </NuxtLink>
         </div>
