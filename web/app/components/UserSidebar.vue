@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import { Users, Key, LayoutDashboard, BarChart3 } from 'lucide-vue-next'
+import { LayoutDashboard, FileText } from 'lucide-vue-next'
 
 const route = useRoute()
-const { user } = useAuth()
 
-const isAdmin = computed(() => user.value?.user_type === 'admin')
-
-const adminLinks = [
+const userLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/model/users', label: 'Users', icon: Users },
-  { to: '/admin/model/tokens', label: 'Tokens', icon: Key },
-  { to: '/admin/model/usage', label: 'Usage', icon: BarChart3 },
+  { to: '/docs', label: 'Docs', icon: FileText },
 ]
 
 function isActive(path: string) {
@@ -20,12 +15,11 @@ function isActive(path: string) {
 
 <template>
   <aside
-    v-if="isAdmin"
-    class="hidden md:flex fixed right-0 top-0 h-screen w-16 pt-20 border-l border-neutral-200 dark:border-white/10 bg-white dark:bg-black z-40 flex-col items-center py-4"
+    class="hidden md:flex fixed left-0 top-0 h-screen w-16 pt-20 border-r border-neutral-200 dark:border-white/10 bg-white dark:bg-black z-40 flex-col items-center py-4"
   >
     <nav class="flex flex-col gap-2 mt-4">
       <NuxtLink
-        v-for="link in adminLinks"
+        v-for="link in userLinks"
         :key="link.to"
         :to="link.to"
         :title="link.label"

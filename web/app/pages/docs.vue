@@ -118,7 +118,7 @@ asyncio.run(transcribe())`
     <main class="container mx-auto px-4 py-12 pt-24">
       <div class="max-w-4xl mx-auto">
         <!-- Header -->
-        <div style="margin-bottom: 3rem;">
+        <div class="docs-header">
           <h1 class="text-4xl font-bold mb-4">API Documentation</h1>
           <p class="text-lg text-neutral-600 dark:text-neutral-400">
             Integrate real-time speech-to-text transcription into your applications using the HyperWhisper API.
@@ -126,8 +126,8 @@ asyncio.run(transcribe())`
         </div>
 
         <!-- Quick Start -->
-        <section style="margin-bottom: 3rem;">
-          <div class="flex items-center gap-3" style="margin-bottom: 1.5rem;">
+        <section class="docs-section">
+          <div class="docs-section-title flex items-center gap-3">
             <Zap class="size-5" />
             <h2 class="text-2xl font-bold">Quick Start</h2>
           </div>
@@ -157,8 +157,8 @@ asyncio.run(transcribe())`
         </section>
 
         <!-- WebSocket API -->
-        <section style="margin-bottom: 3rem;">
-          <div class="flex items-center gap-3" style="margin-bottom: 1.5rem;">
+        <section class="docs-section">
+          <div class="docs-section-title flex items-center gap-3">
             <Mic class="size-5" />
             <h2 class="text-2xl font-bold">WebSocket Transcription API</h2>
           </div>
@@ -322,8 +322,8 @@ asyncio.run(transcribe())`
         </section>
 
         <!-- Code Examples -->
-        <section style="margin-bottom: 3rem;">
-          <div class="flex items-center gap-3" style="margin-bottom: 1.5rem;">
+        <section class="docs-section">
+          <div class="docs-section-title flex items-center gap-3">
             <FileText class="size-5" />
             <h2 class="text-2xl font-bold">Code Examples</h2>
           </div>
@@ -370,8 +370,8 @@ asyncio.run(transcribe())`
         </section>
 
         <!-- REST API -->
-        <section style="margin-bottom: 3rem;">
-          <div class="flex items-center gap-3" style="margin-bottom: 1.5rem;">
+        <section class="docs-section">
+          <div class="docs-section-title flex items-center gap-3">
             <Key class="size-5" />
             <h2 class="text-2xl font-bold">REST API</h2>
           </div>
@@ -442,8 +442,8 @@ asyncio.run(transcribe())`
         </section>
 
         <!-- Rate Limits -->
-        <section style="margin-bottom: 3rem;">
-          <div class="flex items-center gap-3" style="margin-bottom: 1.5rem;">
+        <section class="docs-section">
+          <div class="docs-section-title flex items-center gap-3">
             <BarChart3 class="size-5" />
             <h2 class="text-2xl font-bold">Usage & Limits</h2>
           </div>
@@ -506,3 +506,17 @@ asyncio.run(transcribe())`
     </footer>
   </div>
 </template>
+
+<style scoped>
+.docs-header {
+  margin-bottom: 3rem;
+}
+
+.docs-section {
+  margin-bottom: 3rem;
+}
+
+.docs-section-title {
+  margin-bottom: 1.5rem;
+}
+</style>

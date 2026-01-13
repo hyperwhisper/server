@@ -405,9 +405,10 @@ onMounted(() => {
 <template>
   <div class="min-h-screen bg-white dark:bg-black">
     <AppNavbar />
+    <UserSidebar />
     <AdminSidebar />
 
-    <main class="container mx-auto px-4 py-12 pt-24 pr-20">
+    <main class="main-content container mx-auto px-4 py-12 pt-24">
       <div class="max-w-4xl mx-auto space-y-8">
         <!-- Welcome -->
         <div>
@@ -712,3 +713,12 @@ onMounted(() => {
     </Dialog>
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 768px) {
+  .main-content {
+    padding-left: 5rem;
+    padding-right: 5rem;
+  }
+}
+</style>
