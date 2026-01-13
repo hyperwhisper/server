@@ -473,6 +473,8 @@ func (s *proxySession) proxyClientToDeepgram() {
 }
 
 func (s *proxySession) proxyDeepgramToClient() {
+	clientClosed := false
+
 	for {
 		messageType, data, err := s.deepgramConn.ReadMessage()
 		if err != nil {
@@ -484,30 +486,60 @@ func (s *proxySession) proxyDeepgramToClient() {
 		if messageType == websocket.TextMessage {
 			log.Printf("[Deepgram] Received from Deepgram: %s", string(data))
 			s.extractDurationFromResponse(data)
+
+			// Check if this is the final metadata (Deepgram closes after this)
+			var msg struct {
+				Type string `json:"type"`
+			}
+			if json.Unmarshal(data, &msg) == nil && msg.Type == "Metadata" {
+				// This could be the final metadata after CloseStream
+				// Try to forward but don't exit if it fails
+				if !clientClosed {
+					if err := s.clientConn.WriteMessage(messageType, data); err != nil {
+						log.Printf("[Deepgram] Client closed, but captured final metadata")
+						clientClosed = true
+					}
+				}
+				continue
+			}
 		}
 
-		// Forward to client
-		if err := s.clientConn.WriteMessage(messageType, data); err != nil {
-			log.Printf("[Deepgram] Error forwarding to client: %v", err)
-			return
+		// Forward to client (if still connected)
+		if !clientClosed {
+			if err := s.clientConn.WriteMessage(messageType, data); err != nil {
+				log.Printf("[Deepgram] Error forwarding to client: %v", err)
+				clientClosed = true
+				// Don't return - keep reading from Deepgram to get final metadata
+			}
 		}
 	}
 }
 
 func (s *proxySession) extractDurationFromResponse(data []byte) {
-	// Deepgram sends metadata with duration in the final response
+	// Deepgram sends duration in Metadata messages
+	// The final Metadata message (after CloseStream) contains the total duration
 	var response struct {
-		Type     string `json:"type"`
+		Type     string  `json:"type"`
+		Duration float64 `json:"duration"`
 		Metadata *struct {
 			Duration float64 `json:"duration"`
 		} `json:"metadata"`
 	}
 
 	if err := json.Unmarshal(data, &response); err == nil {
+		// Check for duration at top level (final metadata message)
+		if response.Type == "Metadata" && response.Duration > 0 {
+			s.mu.Lock()
+			s.duration = response.Duration
+			s.mu.Unlock()
+			log.Printf("[Deepgram] Duration extracted from Metadata: %.3f seconds", response.Duration)
+		}
+		// Also check nested metadata (in Results messages)
 		if response.Metadata != nil && response.Metadata.Duration > 0 {
 			s.mu.Lock()
 			s.duration = response.Metadata.Duration
 			s.mu.Unlock()
+			log.Printf("[Deepgram] Duration extracted from nested metadata: %.3f seconds", response.Metadata.Duration)
 		}
 	}
 }
@@ -521,11 +553,14 @@ func (s *proxySession) finalize() {
 	}
 	s.closed = true
 
+	log.Printf("[Deepgram] Finalizing session - duration: %.3f, bytes: %d", s.duration, s.bytesSent)
+
 	ctx := context.Background()
 
 	if s.duration > 0 {
 		// Convert float64 to pgtype.Numeric
 		durationStr := fmt.Sprintf("%.3f", s.duration)
+		log.Printf("[Deepgram] Updating log as completed with duration: %s", durationStr)
 		_ = s.queries.UpdateTranscriptionLogComplete(ctx, sqlc.UpdateTranscriptionLogCompleteParams{
 			ID:              s.logID,
 			DurationSeconds: stringToNumeric(durationStr),
@@ -533,6 +568,7 @@ func (s *proxySession) finalize() {
 		})
 	} else {
 		// No duration means possibly a timeout or error
+		log.Printf("[Deepgram] Updating log as timeout (no duration captured)")
 		_ = s.queries.UpdateTranscriptionLogTimeout(ctx, sqlc.UpdateTranscriptionLogTimeoutParams{
 			ID:        s.logID,
 			BytesSent: s.bytesSent,

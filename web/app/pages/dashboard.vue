@@ -235,6 +235,20 @@ function clearTranscription() {
   interimTranscription.value = ''
 }
 
+// Copy transcription state
+const copiedTranscription = ref(false)
+
+// Copy transcription to clipboard
+async function copyTranscription() {
+  if (transcription.value) {
+    await navigator.clipboard.writeText(transcription.value)
+    copiedTranscription.value = true
+    setTimeout(() => {
+      copiedTranscription.value = false
+    }, 2000)
+  }
+}
+
 // Store API key in session when created
 function storeApiKey(key: string) {
   sessionStorage.setItem('hyperwhisper_api_key', key)
@@ -362,10 +376,13 @@ function formatBytes(bytes: number): string {
 }
 
 // Format duration
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds.toFixed(1)}s`
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
+function formatDuration(seconds: number | string | null | undefined): string {
+  if (seconds == null) return '-'
+  const num = typeof seconds === 'string' ? parseFloat(seconds) : seconds
+  if (isNaN(num) || num === 0) return '-'
+  if (num < 60) return `${num.toFixed(1)}s`
+  const minutes = Math.floor(num / 60)
+  const remainingSeconds = num % 60
   if (minutes < 60) return `${minutes}m ${remainingSeconds.toFixed(0)}s`
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
@@ -456,7 +473,20 @@ onMounted(() => {
 
             <!-- Transcription Output -->
             <div class="space-y-2">
-              <Label>Transcription</Label>
+              <div class="flex items-center justify-between">
+                <Label>Transcription</Label>
+                <Button
+                  v-if="transcription"
+                  variant="ghost"
+                  size="sm"
+                  @click="copyTranscription"
+                  class="h-8"
+                >
+                  <Check v-if="copiedTranscription" class="size-4 mr-1" />
+                  <Copy v-else class="size-4 mr-1" />
+                  {{ copiedTranscription ? 'Copied!' : 'Copy' }}
+                </Button>
+              </div>
               <div
                 class="min-h-[150px] max-h-[300px] overflow-y-auto p-4 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/5 font-mono text-sm"
               >

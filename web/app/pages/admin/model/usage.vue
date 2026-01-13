@@ -146,10 +146,13 @@ function formatBytes(bytes: number): string {
 }
 
 // Format duration
-function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds.toFixed(1)}s`
-  const minutes = Math.floor(seconds / 60)
-  const remainingSeconds = seconds % 60
+function formatDuration(seconds: number | string | null | undefined): string {
+  if (seconds == null) return '-'
+  const num = typeof seconds === 'string' ? parseFloat(seconds) : seconds
+  if (isNaN(num) || num === 0) return '-'
+  if (num < 60) return `${num.toFixed(1)}s`
+  const minutes = Math.floor(num / 60)
+  const remainingSeconds = num % 60
   if (minutes < 60) return `${minutes}m ${remainingSeconds.toFixed(0)}s`
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
