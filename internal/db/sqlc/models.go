@@ -6,10 +6,22 @@ package sqlc
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type ApiKey struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	KeyHash    string
+	KeyPrefix  string
+	Name       string
+	CreatedAt  sql.NullTime
+	LastUsedAt sql.NullTime
+	RevokedAt  sql.NullTime
+}
 
 type Token struct {
 	ID            uuid.UUID
@@ -19,6 +31,20 @@ type Token struct {
 	ExpiresAt     time.Time
 	RevokedAt     sql.NullTime
 	RevokedReason sql.NullString
+}
+
+type TranscriptionLog struct {
+	ID              uuid.UUID
+	UserID          uuid.UUID
+	ApiKeyID        uuid.UUID
+	StartedAt       time.Time
+	EndedAt         sql.NullTime
+	DurationSeconds sql.NullString
+	Status          string
+	ErrorMessage    sql.NullString
+	DeepgramParams  json.RawMessage
+	BytesSent       int64
+	ClientIp        sql.NullString
 }
 
 type User struct {

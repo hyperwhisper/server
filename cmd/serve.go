@@ -183,6 +183,26 @@ func setupAPIRoutes(api *echo.Group) {
 	admin.POST("/tokens/revoke", adminHandler.RevokeToken)
 	admin.POST("/tokens/revoke-user/:id", adminHandler.RevokeUserRefreshTokens)
 	admin.POST("/tokens/cleanup", adminHandler.CleanupTokens)
+
+	// Deepgram routes
+	deepgramHandler := handlers.NewDeepgramHandler(db.DB)
+
+	// WebSocket endpoint (API key auth, not JWT)
+	api.GET("/deepgram/listen", deepgramHandler.DeepgramProxy)
+
+	// API key management (JWT auth required)
+	deepgram := api.Group("/deepgram")
+	deepgram.Use(auth.JWTMiddleware())
+	deepgram.POST("/keys", deepgramHandler.GenerateAPIKey)
+	deepgram.GET("/keys", deepgramHandler.ListAPIKeys)
+	deepgram.DELETE("/keys/:id", deepgramHandler.RevokeAPIKey)
+	deepgram.GET("/usage", deepgramHandler.GetUsageSummary)
+	deepgram.GET("/logs", deepgramHandler.ListTranscriptionLogs)
+
+	// Admin Deepgram routes
+	admin.GET("/deepgram/logs", adminHandler.ListAllTranscriptionLogs)
+	admin.GET("/deepgram/keys", adminHandler.ListAllAPIKeys)
+	admin.GET("/deepgram/usage", adminHandler.GetSystemUsageSummary)
 }
 
 type HealthCheckResponse struct {

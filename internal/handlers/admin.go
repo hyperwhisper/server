@@ -359,6 +359,236 @@ func (h *AdminHandler) CleanupTokens(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "expired tokens cleaned up successfully"})
 }
 
+// ========== DEEPGRAM ADMIN ENDPOINTS ==========
+
+// AdminTranscriptionLogResponse extends TranscriptionLogResponse with user info
+type AdminTranscriptionLogResponse struct {
+	ID              string  `json:"id"`
+	UserID          string  `json:"user_id"`
+	Username        string  `json:"username"`
+	Email           string  `json:"email"`
+	APIKeyName      string  `json:"api_key_name"`
+	StartedAt       string  `json:"started_at"`
+	EndedAt         *string `json:"ended_at"`
+	DurationSeconds *string `json:"duration_seconds"`
+	Status          string  `json:"status"`
+	ErrorMessage    *string `json:"error_message,omitempty"`
+	BytesSent       int64   `json:"bytes_sent"`
+}
+
+// AdminAPIKeyResponse extends APIKeyResponse with user info
+type AdminAPIKeyResponse struct {
+	ID        string  `json:"id"`
+	UserID    string  `json:"user_id"`
+	Username  string  `json:"username"`
+	Email     string  `json:"email"`
+	Name      string  `json:"name"`
+	KeyPrefix string  `json:"key_prefix"`
+	CreatedAt string  `json:"created_at"`
+	LastUsed  *string `json:"last_used_at"`
+	RevokedAt *string `json:"revoked_at,omitempty"`
+}
+
+// SystemUsageSummaryResponse is the response for system-wide usage
+type SystemUsageSummaryResponse struct {
+	UniqueUsers          int64   `json:"unique_users"`
+	TotalSessions        int64   `json:"total_sessions"`
+	TotalDurationSeconds float64 `json:"total_duration_seconds"`
+	TotalBytesSent       int64   `json:"total_bytes_sent"`
+	PeriodStart          string  `json:"period_start"`
+	PeriodEnd            string  `json:"period_end"`
+}
+
+// ListAllTranscriptionLogs returns all transcription logs (admin only)
+func (h *AdminHandler) ListAllTranscriptionLogs(c echo.Context) error {
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	if page < 1 {
+		page = 1
+	}
+
+	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+
+	offset := (page - 1) * perPage
+	ctx := context.Background()
+
+	total, err := h.queries.CountAllTranscriptionLogs(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	logs, err := h.queries.ListAllTranscriptionLogs(ctx, sqlc.ListAllTranscriptionLogsParams{
+		Limit:  int32(perPage),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	responses := make([]AdminTranscriptionLogResponse, len(logs))
+	for i, log := range logs {
+		responses[i] = toAdminTranscriptionLogResponse(log)
+	}
+
+	totalPages := int(total) / perPage
+	if int(total)%perPage > 0 {
+		totalPages++
+	}
+
+	return c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       responses,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: totalPages,
+	})
+}
+
+// ListAllAPIKeys returns all API keys with user info (admin only)
+func (h *AdminHandler) ListAllAPIKeys(c echo.Context) error {
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	if page < 1 {
+		page = 1
+	}
+
+	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+
+	offset := (page - 1) * perPage
+	ctx := context.Background()
+
+	total, err := h.queries.CountAllAPIKeys(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	keys, err := h.queries.ListAllAPIKeys(ctx, sqlc.ListAllAPIKeysParams{
+		Limit:  int32(perPage),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	responses := make([]AdminAPIKeyResponse, len(keys))
+	for i, key := range keys {
+		responses[i] = toAdminAPIKeyResponse(key)
+	}
+
+	totalPages := int(total) / perPage
+	if int(total)%perPage > 0 {
+		totalPages++
+	}
+
+	return c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       responses,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: totalPages,
+	})
+}
+
+// GetSystemUsageSummary returns system-wide usage statistics (admin only)
+func (h *AdminHandler) GetSystemUsageSummary(c echo.Context) error {
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	if startParam := c.QueryParam("start"); startParam != "" {
+		if t, err := time.Parse(time.RFC3339, startParam); err == nil {
+			startOfMonth = t
+		}
+	}
+	if endParam := c.QueryParam("end"); endParam != "" {
+		if t, err := time.Parse(time.RFC3339, endParam); err == nil {
+			endOfMonth = t
+		}
+	}
+
+	ctx := context.Background()
+
+	summary, err := h.queries.GetSystemUsageSummary(ctx, sqlc.GetSystemUsageSummaryParams{
+		StartDate: startOfMonth,
+		EndDate:   endOfMonth,
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	// Convert decimal string to float64
+	durationFloat := parseDecimalStringAdmin(summary.TotalDurationSeconds)
+	bytesSent := parseBytesSentAdmin(summary.TotalBytesSent)
+
+	return c.JSON(http.StatusOK, SystemUsageSummaryResponse{
+		UniqueUsers:          summary.UniqueUsers,
+		TotalSessions:        summary.TotalSessions,
+		TotalDurationSeconds: durationFloat,
+		TotalBytesSent:       bytesSent,
+		PeriodStart:          startOfMonth.Format(time.RFC3339),
+		PeriodEnd:            endOfMonth.Format(time.RFC3339),
+	})
+}
+
+// Helper function for admin transcription logs
+func toAdminTranscriptionLogResponse(log sqlc.ListAllTranscriptionLogsRow) AdminTranscriptionLogResponse {
+	resp := AdminTranscriptionLogResponse{
+		ID:         log.ID.String(),
+		UserID:     log.UserID.String(),
+		Username:   log.Username,
+		Email:      log.Email,
+		APIKeyName: log.ApiKeyName,
+		StartedAt:  log.StartedAt.Format(time.RFC3339),
+		Status:     log.Status,
+		BytesSent:  log.BytesSent,
+	}
+
+	if log.EndedAt.Valid {
+		t := log.EndedAt.Time.Format(time.RFC3339)
+		resp.EndedAt = &t
+	}
+
+	if log.DurationSeconds.Valid {
+		s := log.DurationSeconds.String
+		resp.DurationSeconds = &s
+	}
+
+	if log.ErrorMessage.Valid {
+		resp.ErrorMessage = &log.ErrorMessage.String
+	}
+
+	return resp
+}
+
+// Helper function for admin API keys
+func toAdminAPIKeyResponse(key sqlc.ListAllAPIKeysRow) AdminAPIKeyResponse {
+	resp := AdminAPIKeyResponse{
+		ID:        key.ID.String(),
+		UserID:    key.UserID.String(),
+		Username:  key.Username,
+		Email:     key.Email,
+		Name:      key.Name,
+		KeyPrefix: key.KeyPrefix,
+		CreatedAt: key.CreatedAt.Time.Format(time.RFC3339),
+	}
+
+	if key.LastUsedAt.Valid {
+		t := key.LastUsedAt.Time.Format(time.RFC3339)
+		resp.LastUsed = &t
+	}
+
+	if key.RevokedAt.Valid {
+		t := key.RevokedAt.Time.Format(time.RFC3339)
+		resp.RevokedAt = &t
+	}
+
+	return resp
+}
+
 // Helper functions
 func toTokenResponse(token sqlc.Token) TokenResponse {
 	issuedAt := ""
@@ -385,5 +615,26 @@ func toTokenResponse(token sqlc.Token) TokenResponse {
 		ExpiresAt:     token.ExpiresAt.Format(time.RFC3339),
 		RevokedAt:     revokedAt,
 		RevokedReason: revokedReason,
+	}
+}
+
+// parseDecimalStringAdmin converts a decimal string to float64
+func parseDecimalStringAdmin(s string) float64 {
+	f, _ := strconv.ParseFloat(s, 64)
+	return f
+}
+
+// parseBytesSentAdmin converts interface{} to int64
+func parseBytesSentAdmin(v interface{}) int64 {
+	switch val := v.(type) {
+	case int64:
+		return val
+	case float64:
+		return int64(val)
+	case string:
+		i, _ := strconv.ParseInt(val, 10, 64)
+		return i
+	default:
+		return 0
 	}
 }
