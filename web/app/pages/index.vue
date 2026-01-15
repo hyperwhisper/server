@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Apple, Monitor } from 'lucide-vue-next'
+import { Apple, Monitor, Terminal } from 'lucide-vue-next'
 
 useHead({
   title: 'HyperWhisper - Open Source Voice to Text',
@@ -75,7 +75,7 @@ onMounted(() => {
         <!-- Main Headline -->
         <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight text-center mb-4 sm:mb-6">
           <span class="bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-500 dark:from-white dark:via-white dark:to-neutral-500 bg-clip-text text-transparent">
-            Write 3x faster,
+            Type 3x faster,
           </span>
           <br />
           <span class="bg-gradient-to-r from-neutral-600 to-neutral-400 dark:from-neutral-300 dark:to-neutral-600 bg-clip-text text-transparent">
@@ -98,35 +98,26 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Download Buttons -->
+        <!-- Download Button -->
         <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 px-4 w-full sm:w-auto">
           <Button
             size="lg"
             class="bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 gap-2 w-full sm:w-auto justify-center"
           >
-            <Apple class="size-4" />
-            Download for Mac
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            class="border-neutral-300 dark:border-white/20 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-white/10 gap-2 w-full sm:w-auto justify-center"
-          >
-            <Monitor class="size-4" />
-            Download for Windows
+            <Terminal class="size-4" />
+            Download for Linux
           </Button>
         </div>
 
         <p class="text-xs text-neutral-400 dark:text-neutral-600 mb-6">
-          requires macOS 13+ or Windows 10+
+          requires Linux with PipeWire or PulseAudio
         </p>
 
-        <!-- Linux Banner -->
+        <!-- Mac & Windows Banner -->
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.02]">
-          <span class="text-sm text-neutral-500 dark:text-neutral-400">Linux support coming soon</span>
-          <Badge variant="secondary" class="bg-neutral-200 dark:bg-white/10 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-white/10 text-xs">
-            Beta
-          </Badge>
+          <Apple class="size-4 text-neutral-400" />
+          <Monitor class="size-4 text-neutral-400" />
+          <span class="text-sm text-neutral-500 dark:text-neutral-400">Mac & Windows support coming soon</span>
         </div>
       </section>
 
