@@ -9,34 +9,44 @@ useHead({
 })
 
 const demoText = ref('')
-const fullText = "Hey, just finished the design review. The new dashboard looks incredible - clean, fast, and exactly what we needed. Let's ship it tomorrow."
+const demoTexts = [
+  "Hey, just finished the design review. The new dashboard looks incredible - clean, fast, and exactly what we needed. Let's ship it tomorrow.",
+  "Note to self: refactor the authentication module before the sprint ends. Also need to update the API docs.",
+  "Quick standup update - fixed the memory leak in production, PR is ready for review. Moving on to the billing integration next.",
+  "Dear team, I wanted to follow up on yesterday's discussion about the migration strategy. I think we should proceed with option B.",
+  "Remind me to call Mom at 5pm. Also pick up groceries - milk, eggs, bread, and that fancy cheese she likes."
+]
+const currentTextIndex = ref(0)
 const isTyping = ref(true)
 
-onMounted(() => {
+function typeText(text: string, onComplete: () => void) {
   let i = 0
-  const typeInterval = setInterval(() => {
-    if (i < fullText.length) {
-      demoText.value += fullText[i]
+  demoText.value = ''
+  isTyping.value = true
+
+  const interval = setInterval(() => {
+    if (i < text.length) {
+      demoText.value += text[i]
       i++
     } else {
       isTyping.value = false
-      clearInterval(typeInterval)
-      setTimeout(() => {
-        demoText.value = ''
-        i = 0
-        isTyping.value = true
-        const restartInterval = setInterval(() => {
-          if (i < fullText.length) {
-            demoText.value += fullText[i]
-            i++
-          } else {
-            isTyping.value = false
-            clearInterval(restartInterval)
-          }
-        }, 40)
-      }, 3000)
+      clearInterval(interval)
+      onComplete()
     }
   }, 40)
+}
+
+function cycleTexts() {
+  typeText(demoTexts[currentTextIndex.value], () => {
+    setTimeout(() => {
+      currentTextIndex.value = (currentTextIndex.value + 1) % demoTexts.length
+      cycleTexts()
+    }, 3000)
+  })
+}
+
+onMounted(() => {
+  cycleTexts()
 })
 </script>
 
