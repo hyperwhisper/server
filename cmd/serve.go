@@ -190,6 +190,10 @@ func setupAPIRoutes(api *echo.Group) {
 	// WebSocket endpoint (API key auth, not JWT)
 	api.GET("/deepgram/listen", deepgramHandler.DeepgramProxy)
 
+	// Dashboard WebSocket endpoint (JWT auth via cookie, no API key needed)
+	// This endpoint has a 5-minute session limit and doesn't log to transcription_logs
+	api.GET("/deepgram/dashboard/listen", deepgramHandler.DeepgramProxyDashboard, auth.JWTMiddleware())
+
 	// API key management (JWT auth required)
 	deepgram := api.Group("/deepgram")
 	deepgram.Use(auth.JWTMiddleware())

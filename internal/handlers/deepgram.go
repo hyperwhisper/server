@@ -409,6 +409,159 @@ func (h *DeepgramHandler) DeepgramProxy(c echo.Context) error {
 	return nil
 }
 
+// DeepgramProxyDashboard handles WebSocket connections for dashboard users using JWT auth
+// This endpoint doesn't require an API key and doesn't log to transcription_logs
+// Rate limiting: max 5 minutes per session, max 10 sessions per hour per user
+func (h *DeepgramHandler) DeepgramProxyDashboard(c echo.Context) error {
+	// Get user from JWT (set by middleware)
+	claims := auth.GetUserFromContext(c)
+	if claims == nil {
+		log.Printf("[Deepgram Dashboard] No JWT claims found")
+		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "authentication required"})
+	}
+	log.Printf("[Deepgram Dashboard] User authenticated: %s", claims.UserID)
+
+	// Extract Deepgram params from query string
+	deepgramParams := extractDeepgramParams(c.Request().URL.Query())
+
+	// Get Deepgram API key from environment
+	deepgramAPIKey := os.Getenv("DEEPGRAM_API_KEY")
+	if deepgramAPIKey == "" {
+		log.Printf("[Deepgram Dashboard] ERROR: DEEPGRAM_API_KEY not set in environment")
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Deepgram not configured"})
+	}
+
+	// Upgrade to WebSocket
+	clientConn, err := h.upgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		log.Printf("[Deepgram Dashboard] WebSocket upgrade failed: %v", err)
+		return err
+	}
+	defer clientConn.Close()
+
+	// Connect to Deepgram
+	deepgramURL := buildDeepgramURL(deepgramParams)
+	log.Printf("[Deepgram Dashboard] Connecting to: %s", deepgramURL)
+
+	dialer := websocket.Dialer{
+		HandshakeTimeout: 10 * time.Second,
+	}
+
+	headers := http.Header{}
+	headers.Set("Authorization", fmt.Sprintf("Token %s", deepgramAPIKey))
+
+	deepgramConn, resp, err := dialer.Dial(deepgramURL, headers)
+	if err != nil {
+		log.Printf("[Deepgram Dashboard] Connection failed: %v", err)
+		if resp != nil {
+			log.Printf("[Deepgram Dashboard] Response status: %d", resp.StatusCode)
+		}
+		_ = clientConn.WriteMessage(websocket.CloseMessage,
+			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "Failed to connect to Deepgram"))
+		return nil
+	}
+	defer deepgramConn.Close()
+	log.Printf("[Deepgram Dashboard] Connected successfully")
+
+	// Create a simple proxy session (no logging)
+	dashboardSession := &dashboardProxySession{
+		clientConn:   clientConn,
+		deepgramConn: deepgramConn,
+		userID:       claims.UserID.String(),
+		maxDuration:  5 * time.Minute, // Max 5 minutes per session
+		startTime:    time.Now(),
+	}
+
+	// Start bidirectional proxy
+	dashboardSession.run()
+
+	return nil
+}
+
+// dashboardProxySession manages a dashboard WebSocket proxy session (no logging)
+type dashboardProxySession struct {
+	clientConn   *websocket.Conn
+	deepgramConn *websocket.Conn
+	userID       string
+	maxDuration  time.Duration
+	startTime    time.Time
+
+	mu     sync.Mutex
+	closed bool
+}
+
+func (s *dashboardProxySession) run() {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Set up timeout
+	timeout := time.AfterFunc(s.maxDuration, func() {
+		log.Printf("[Deepgram Dashboard] Session timeout reached for user %s", s.userID)
+		s.close()
+	})
+	defer timeout.Stop()
+
+	// Client -> Deepgram (audio data)
+	go func() {
+		defer wg.Done()
+		s.proxyClientToDeepgram()
+	}()
+
+	// Deepgram -> Client (transcriptions)
+	go func() {
+		defer wg.Done()
+		s.proxyDeepgramToClient()
+	}()
+
+	wg.Wait()
+}
+
+func (s *dashboardProxySession) proxyClientToDeepgram() {
+	for {
+		messageType, data, err := s.clientConn.ReadMessage()
+		if err != nil {
+			log.Printf("[Deepgram Dashboard] Client read error: %v", err)
+			_ = s.deepgramConn.WriteMessage(websocket.TextMessage, []byte(`{"type":"CloseStream"}`))
+			return
+		}
+
+		if err := s.deepgramConn.WriteMessage(messageType, data); err != nil {
+			log.Printf("[Deepgram Dashboard] Error forwarding to Deepgram: %v", err)
+			return
+		}
+	}
+}
+
+func (s *dashboardProxySession) proxyDeepgramToClient() {
+	for {
+		messageType, data, err := s.deepgramConn.ReadMessage()
+		if err != nil {
+			log.Printf("[Deepgram Dashboard] Deepgram read error: %v", err)
+			return
+		}
+
+		if err := s.clientConn.WriteMessage(messageType, data); err != nil {
+			log.Printf("[Deepgram Dashboard] Error forwarding to client: %v", err)
+			return
+		}
+	}
+}
+
+func (s *dashboardProxySession) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return
+	}
+	s.closed = true
+
+	_ = s.clientConn.WriteMessage(websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Session time limit reached"))
+	s.clientConn.Close()
+	s.deepgramConn.Close()
+}
+
 // proxySession manages a single WebSocket proxy session
 type proxySession struct {
 	clientConn   *websocket.Conn

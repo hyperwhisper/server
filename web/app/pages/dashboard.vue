@@ -46,8 +46,8 @@ let mediaStream: MediaStream | null = null
 let workletNode: AudioWorkletNode | null = null
 let sourceNode: MediaStreamAudioSourceNode | null = null
 
-// Get the first active API key for transcription
-const activeApiKey = computed(() => apiKeys.value.find(k => !k.revoked_at))
+// Manual API key input
+const manualApiKey = ref('')
 
 // Toggle microphone
 async function toggleMic() {
@@ -63,13 +63,13 @@ async function startRecording() {
   micError.value = null
 
   // Check for API key
-  if (!activeApiKey.value) {
-    micError.value = 'Please create an API key first'
+  if (!manualApiKey.value.trim()) {
+    micError.value = 'Please paste your API key'
     return
   }
 
   try {
-    // Get microphone access - request higher sample rate, we'll resample
+    // Get microphone access
     mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         channelCount: 1,
@@ -78,22 +78,14 @@ async function startRecording() {
       }
     })
 
-    // For now, let's check if we have a recently created key in session
-    const storedKey = sessionStorage.getItem('hyperwhisper_api_key')
-    if (!storedKey) {
-      micError.value = 'Please create a new API key and copy it, then try again. The full key is needed for streaming.'
-      mediaStream.getTracks().forEach(track => track.stop())
-      return
-    }
-
-    // Create AudioContext - use native sample rate and resample
+    // Create AudioContext - use native sample rate
     audioContext = new AudioContext()
     const nativeSampleRate = audioContext.sampleRate
     console.log('Native sample rate:', nativeSampleRate)
 
-    // Build WebSocket URL - use native sample rate
+    // Build WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const fullWsUrl = `${protocol}//${window.location.host}/api/v1/deepgram/listen?api_key=${storedKey}&model=nova-3&smart_format=true&interim_results=true&encoding=linear16&sample_rate=${nativeSampleRate}`
+    const fullWsUrl = `${protocol}//${window.location.host}/api/v1/deepgram/listen?api_key=${manualApiKey.value.trim()}&model=nova-3&smart_format=true&interim_results=true&encoding=linear16&sample_rate=${nativeSampleRate}`
 
     // Connect to WebSocket
     websocket = new WebSocket(fullWsUrl)
@@ -249,11 +241,6 @@ async function copyTranscription() {
   }
 }
 
-// Store API key in session when created
-function storeApiKey(key: string) {
-  sessionStorage.setItem('hyperwhisper_api_key', key)
-}
-
 // Fetch API keys
 async function fetchAPIKeys() {
   isLoadingKeys.value = true
@@ -305,8 +292,8 @@ async function createAPIKey() {
     })
 
     createdKey.value = response
-    // Store the full key for transcription use
-    storeApiKey(response.key)
+    // Auto-fill the manual API key field
+    manualApiKey.value = response.key
     createForm.value = { name: '' }
     await fetchAPIKeys()
   } catch (e: any) {
@@ -413,97 +400,7 @@ onMounted(() => {
         <!-- Welcome -->
         <div>
           <h1 class="text-3xl font-bold mb-2">Welcome, {{ user?.first_name || user?.username }}</h1>
-          <p class="text-neutral-600 dark:text-neutral-400">
-            Live transcription powered by Deepgram
-          </p>
         </div>
-
-        <!-- Live Transcription Card -->
-        <Card>
-          <CardHeader>
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <Mic class="size-5" />
-                <CardTitle>Live Transcription</CardTitle>
-              </div>
-              <div class="flex items-center gap-2">
-                <Badge v-if="isRecording" variant="destructive" class="animate-pulse">
-                  Recording
-                </Badge>
-                <Button
-                  v-if="transcription || interimTranscription"
-                  variant="ghost"
-                  size="sm"
-                  @click="clearTranscription"
-                >
-                  Clear
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent class="space-y-4">
-            <!-- Error -->
-            <Alert v-if="micError" variant="destructive">
-              <AlertDescription>{{ micError }}</AlertDescription>
-            </Alert>
-
-            <!-- No API Key Warning -->
-            <Alert v-if="!isLoadingKeys && apiKeys.length === 0">
-              <AlertDescription>
-                Create an API key below to start using live transcription.
-              </AlertDescription>
-            </Alert>
-
-            <!-- Mic Button -->
-            <div class="flex justify-center">
-              <Button
-                size="lg"
-                :variant="isRecording ? 'destructive' : 'default'"
-                @click="toggleMic"
-                :disabled="isLoadingKeys || apiKeys.length === 0"
-                class="w-20 h-20 rounded-full"
-              >
-                <MicOff v-if="isRecording" class="size-8" />
-                <Mic v-else class="size-8" />
-              </Button>
-            </div>
-
-            <p class="text-center text-sm text-neutral-500 dark:text-neutral-400">
-              {{ isRecording ? 'Click to stop recording' : 'Click to start recording' }}
-            </p>
-
-            <!-- Transcription Output -->
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <Label>Transcription</Label>
-                <Button
-                  v-if="transcription"
-                  variant="ghost"
-                  size="sm"
-                  @click="copyTranscription"
-                  class="h-8"
-                >
-                  <Check v-if="copiedTranscription" class="size-4 mr-1" />
-                  <Copy v-else class="size-4 mr-1" />
-                  {{ copiedTranscription ? 'Copied!' : 'Copy' }}
-                </Button>
-              </div>
-              <div
-                class="min-h-[150px] max-h-[300px] overflow-y-auto p-4 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/5 font-mono text-sm"
-              >
-                <span v-if="transcription || interimTranscription">
-                  {{ transcription }}
-                  <span v-if="interimTranscription" class="text-neutral-400 dark:text-neutral-500">
-                    {{ interimTranscription }}
-                  </span>
-                </span>
-                <span v-else class="text-neutral-400 dark:text-neutral-500 italic">
-                  Transcription will appear here...
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         <!-- Usage Summary -->
         <Card>
@@ -610,6 +507,101 @@ onMounted(() => {
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <!-- Live Transcription Card -->
+        <Card>
+          <CardHeader>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <Mic class="size-5" />
+                <CardTitle>Live Transcription</CardTitle>
+              </div>
+              <div class="flex items-center gap-2">
+                <Badge v-if="isRecording" variant="destructive" class="animate-pulse">
+                  Recording
+                </Badge>
+                <Button
+                  v-if="transcription || interimTranscription"
+                  variant="ghost"
+                  size="sm"
+                  @click="clearTranscription"
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent class="space-y-4">
+            <!-- Error -->
+            <Alert v-if="micError" variant="destructive">
+              <AlertDescription>{{ micError }}</AlertDescription>
+            </Alert>
+
+            <!-- API Key Input -->
+            <div class="flex flex-col items-center gap-2 max-w-md mx-auto">
+              <div class="flex items-center gap-2 w-full">
+                <Input
+                  v-model="manualApiKey"
+                  type="password"
+                  placeholder="Paste your API key (hw_live_...)"
+                  class="font-mono text-sm"
+                />
+              </div>
+              <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                Create an API key below and paste it here to start transcribing.
+              </p>
+            </div>
+
+            <!-- Mic Button -->
+            <div class="flex justify-center">
+              <Button
+                size="lg"
+                :variant="isRecording ? 'destructive' : 'default'"
+                @click="toggleMic"
+                :disabled="!manualApiKey.trim()"
+                class="w-20 h-20 rounded-full"
+              >
+                <MicOff v-if="isRecording" class="size-8" />
+                <Mic v-else class="size-8" />
+              </Button>
+            </div>
+
+            <p class="text-center text-sm text-neutral-500 dark:text-neutral-400">
+              {{ isRecording ? 'Click to stop recording' : 'Click to start recording' }}
+            </p>
+
+            <!-- Transcription Output -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <Label>Transcription</Label>
+                <Button
+                  v-if="transcription"
+                  variant="ghost"
+                  size="sm"
+                  @click="copyTranscription"
+                  class="h-8"
+                >
+                  <Check v-if="copiedTranscription" class="size-4 mr-1" />
+                  <Copy v-else class="size-4 mr-1" />
+                  {{ copiedTranscription ? 'Copied!' : 'Copy' }}
+                </Button>
+              </div>
+              <div
+                class="min-h-[150px] max-h-[300px] overflow-y-auto p-4 rounded-lg border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/5 font-mono text-sm"
+              >
+                <span v-if="transcription || interimTranscription">
+                  {{ transcription }}
+                  <span v-if="interimTranscription" class="text-neutral-400 dark:text-neutral-500">
+                    {{ interimTranscription }}
+                  </span>
+                </span>
+                <span v-else class="text-neutral-400 dark:text-neutral-500 italic">
+                  Transcription will appear here...
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
