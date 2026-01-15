@@ -18,6 +18,38 @@ const demoTexts = [
 ]
 const currentTextIndex = ref(0)
 const isTyping = ref(true)
+const isListening = ref(false)
+
+// Generate bar heights for the waveform (mimics audio visualization)
+const barCount = 160
+const barHeights = ref<number[]>([])
+let animationFrame: number | null = null
+
+function generateWaveformHeights() {
+  const heights: number[] = []
+  for (let i = 0; i < barCount; i++) {
+    // Create a wave pattern - higher in the middle, lower at edges
+    const centerDistance = Math.abs(i - barCount / 2) / (barCount / 2)
+    const baseHeight = (1 - centerDistance * 0.7) * 100
+    const randomVariation = Math.random() * 40 - 20
+    heights.push(Math.max(8, Math.min(100, baseHeight + randomVariation)))
+  }
+  barHeights.value = heights
+}
+
+function animateWaveform() {
+  generateWaveformHeights()
+  animationFrame = requestAnimationFrame(() => {
+    setTimeout(animateWaveform, 80)
+  })
+}
+
+function stopWaveformAnimation() {
+  if (animationFrame) {
+    cancelAnimationFrame(animationFrame)
+    animationFrame = null
+  }
+}
 
 function typeText(text: string, onComplete: () => void) {
   let i = 0
@@ -37,16 +69,31 @@ function typeText(text: string, onComplete: () => void) {
 }
 
 function cycleTexts() {
-  typeText(demoTexts[currentTextIndex.value], () => {
-    setTimeout(() => {
-      currentTextIndex.value = (currentTextIndex.value + 1) % demoTexts.length
-      cycleTexts()
-    }, 3000)
-  })
+  // First show listening animation
+  isListening.value = true
+  animateWaveform()
+
+  // After 2 seconds, stop listening and start typing
+  setTimeout(() => {
+    isListening.value = false
+    stopWaveformAnimation()
+
+    typeText(demoTexts[currentTextIndex.value], () => {
+      setTimeout(() => {
+        currentTextIndex.value = (currentTextIndex.value + 1) % demoTexts.length
+        cycleTexts()
+      }, 3000)
+    })
+  }, 2000)
 }
 
 onMounted(() => {
+  generateWaveformHeights()
   cycleTexts()
+})
+
+onUnmounted(() => {
+  stopWaveformAnimation()
 })
 </script>
 
@@ -101,8 +148,18 @@ onMounted(() => {
 
         <!-- Live Demo Text -->
         <div class="max-w-2xl mx-auto mb-10 sm:mb-14 px-4 w-full">
-          <div class="relative rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.02] p-4 sm:p-6 backdrop-blur-sm">
-            <p class="text-base sm:text-lg text-neutral-700 dark:text-neutral-300 min-h-[3rem] sm:min-h-[4rem]">
+          <div class="relative rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.02] p-4 sm:p-6 backdrop-blur-sm min-h-[5rem] sm:min-h-[6rem]">
+            <!-- Listening Waveform Animation -->
+            <div v-if="isListening" class="flex items-center justify-center h-[3rem] sm:h-[4rem] gap-[1px] w-full">
+              <div
+                v-for="(height, index) in barHeights"
+                :key="index"
+                class="w-[1.5px] sm:w-[2px] rounded-full bg-neutral-400 dark:bg-neutral-500 transition-all duration-75"
+                :style="{ height: `${height}%` }"
+              />
+            </div>
+            <!-- Typed Text -->
+            <p v-else class="text-base sm:text-lg text-neutral-700 dark:text-neutral-300 min-h-[3rem] sm:min-h-[4rem]">
               {{ demoText }}<span v-if="isTyping" class="inline-block w-0.5 h-5 bg-neutral-900/70 dark:bg-white/70 ml-0.5 animate-pulse" />
             </p>
           </div>
