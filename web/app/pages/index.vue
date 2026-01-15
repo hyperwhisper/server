@@ -193,9 +193,9 @@ onUnmounted(() => {
         <div class="container mx-auto px-4">
           <div class="grid sm:grid-cols-3 gap-8 sm:gap-12 max-w-4xl mx-auto">
             <div class="text-center sm:text-left">
-              <h3 class="text-lg font-medium mb-2">100% Local</h3>
+              <h3 class="text-lg font-medium mb-2">Hyper Accurate</h3>
               <p class="text-sm text-neutral-500">
-                All processing happens on your device. Your voice never leaves your machine.
+                Powered by state-of-the-art AI models. Understands accents, jargon, and context.
               </p>
             </div>
             <div class="text-center sm:text-left">
