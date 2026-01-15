@@ -110,13 +110,75 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white overflow-hidden transition-colors duration-300">
-    <!-- Subtle gradient background -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute -top-[50%] left-[50%] -translate-x-1/2 w-[100%] h-[100%] rounded-full bg-gradient-to-b from-neutral-200/50 dark:from-neutral-800/30 to-transparent blur-3xl" />
-    </div>
-
-    <!-- Subtle grain texture overlay -->
-    <div class="fixed inset-0 opacity-[0.02] dark:opacity-[0.015] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]" />
+    <!-- Cracked wall texture background -->
+    <svg class="fixed inset-0 w-full h-full pointer-events-none opacity-[0.25] dark:opacity-[0.35] z-50" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="cracks" patternUnits="userSpaceOnUse" width="200" height="200">
+          <g fill="none" stroke="currentColor" stroke-width="0.25" stroke-linecap="round">
+            <!-- Cluster 1 - top left -->
+            <path d="M10,0 Q12,15 8,30 T12,50" />
+            <path d="M8,30 Q0,35 -5,45" />
+            <path d="M12,50 Q20,55 30,52" />
+            <!-- Cluster 2 - top center -->
+            <path d="M80,5 Q75,20 82,35 T78,55 Q72,70 80,85" />
+            <path d="M82,35 Q95,40 110,38" />
+            <path d="M78,55 Q65,60 55,58" />
+            <!-- Cluster 3 - top right -->
+            <path d="M160,0 Q155,18 162,35 T155,60" />
+            <path d="M162,35 Q175,40 190,37" />
+            <path d="M155,60 Q145,65 135,62" />
+            <!-- Cluster 4 - middle left -->
+            <path d="M0,100 Q15,105 30,100 T55,108" />
+            <path d="M30,100 Q35,115 32,130" />
+            <path d="M55,108 Q60,95 68,85" />
+            <!-- Cluster 5 - center -->
+            <path d="M95,90 Q90,105 98,120 T92,145 Q88,160 95,175" />
+            <path d="M98,120 Q110,125 125,122" />
+            <path d="M92,145 Q80,150 68,147" />
+            <path d="M95,175 Q105,180 118,177" />
+            <!-- Cluster 6 - middle right -->
+            <path d="M170,95 Q165,110 172,125 T168,150" />
+            <path d="M172,125 Q185,130 200,127" />
+            <path d="M168,150 Q155,155 142,152" />
+            <!-- Cluster 7 - bottom left -->
+            <path d="M25,165 Q20,180 28,195 T22,200" />
+            <path d="M28,195 Q40,200 55,197" />
+            <path d="M25,165 Q12,160 0,163" />
+            <!-- Cluster 8 - bottom center -->
+            <path d="M110,170 Q105,185 112,200" />
+            <path d="M112,185 Q125,190 140,187" />
+            <path d="M110,170 Q98,165 85,168" />
+            <!-- Cluster 9 - bottom right -->
+            <path d="M175,175 Q170,190 178,200" />
+            <path d="M175,175 Q188,170 200,173" />
+            <path d="M178,188 Q165,192 152,189" />
+            <!-- Small accent cracks -->
+            <path d="M45,20 Q48,30 45,40" />
+            <path d="M130,15 Q133,28 128,38" />
+            <path d="M185,55 Q190,65 187,78" />
+            <path d="M15,70 Q20,82 17,95" />
+            <path d="M140,75 Q145,88 142,100" />
+            <path d="M55,140 Q60,152 57,165" />
+            <path d="M150,140 Q155,150 152,162" />
+            <path d="M70,195 Q75,200 73,200" />
+            <!-- Tiny hairline cracks -->
+            <path d="M35,55 Q38,62 36,70" />
+            <path d="M115,45 Q118,52 116,60" />
+            <path d="M180,30 Q183,38 181,48" />
+            <path d="M5,130 Q10,138 8,148" />
+            <path d="M65,115 Q70,122 68,132" />
+            <path d="M195,115 Q200,123 198,133" />
+            <path d="M40,180 Q45,188 43,198" />
+            <path d="M125,155 Q130,163 128,173" />
+            <path d="M90,60 Q93,68 91,78" />
+            <path d="M160,165 Q163,172 161,182" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#cracks)" />
+    </svg>
+    <!-- Subtle grain overlay -->
+    <div class="fixed inset-0 opacity-[0.015] dark:opacity-[0.02] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44IiBudW1PY3RhdmVzPSI0IiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbHRlcj0idXJsKCNuKSIvPjwvc3ZnPg==')]" />
 
     <AppNavbar />
 
