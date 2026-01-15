@@ -201,15 +201,9 @@ onUnmounted(() => {
                 </div>
                 <span v-else class="text-sm">Ready</span>
               </div>
-              <div class="flex items-center gap-3">
-                <!-- Toggle switch -->
-                <button class="relative w-10 h-5 rounded-full bg-neutral-200 dark:bg-neutral-700 transition-colors">
-                  <span class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white dark:bg-neutral-400 shadow transition-transform" />
-                </button>
-                <!-- Mic icon -->
-                <div class="p-1.5 rounded text-neutral-500 dark:text-neutral-400">
-                  <Mic class="size-4" />
-                </div>
+              <!-- Mic icon -->
+              <div class="p-1.5 rounded text-neutral-500 dark:text-neutral-400">
+                <Mic class="size-4" />
               </div>
             </div>
           </div>
