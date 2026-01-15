@@ -875,12 +875,20 @@ func parseBytesSent(v interface{}) int64 {
 	switch val := v.(type) {
 	case int64:
 		return val
+	case int:
+		return int64(val)
+	case int32:
+		return int64(val)
 	case float64:
 		return int64(val)
 	case string:
 		i, _ := strconv.ParseInt(val, 10, 64)
 		return i
+	case []byte:
+		i, _ := strconv.ParseInt(string(val), 10, 64)
+		return i
 	default:
+		log.Printf("[Usage] parseBytesSent: unknown type %T with value %v", v, v)
 		return 0
 	}
 }

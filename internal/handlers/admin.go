@@ -629,10 +629,17 @@ func parseBytesSentAdmin(v interface{}) int64 {
 	switch val := v.(type) {
 	case int64:
 		return val
+	case int:
+		return int64(val)
+	case int32:
+		return int64(val)
 	case float64:
 		return int64(val)
 	case string:
 		i, _ := strconv.ParseInt(val, 10, 64)
+		return i
+	case []byte:
+		i, _ := strconv.ParseInt(string(val), 10, 64)
 		return i
 	default:
 		return 0

@@ -431,6 +431,9 @@ onMounted(() => {
             <div v-else class="text-center py-4 text-neutral-500">
               No usage data available
             </div>
+            <p class="text-xs text-neutral-400 dark:text-neutral-500 mt-4 text-center">
+              We do not store any audio or transcription data.
+            </p>
           </CardContent>
         </Card>
 
