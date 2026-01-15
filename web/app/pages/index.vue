@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Apple, Monitor, Terminal } from 'lucide-vue-next'
+import { Apple, Monitor, Terminal, Settings, Copy, Mic } from 'lucide-vue-next'
 
 useHead({
   title: 'HyperWhisper - Open Source Voice to Text',
@@ -19,6 +19,17 @@ const demoTexts = [
 const currentTextIndex = ref(0)
 const isTyping = ref(true)
 const isListening = ref(false)
+const showCopied = ref(false)
+
+async function copyText() {
+  if (demoText.value) {
+    await navigator.clipboard.writeText(demoText.value)
+    showCopied.value = true
+    setTimeout(() => {
+      showCopied.value = false
+    }, 2000)
+  }
+}
 
 // Generate bar heights for the waveform (mimics audio visualization)
 const barCount = 160
@@ -153,20 +164,54 @@ onUnmounted(() => {
 
         <!-- Live Demo Text -->
         <div class="max-w-2xl mx-auto mb-10 sm:mb-14 px-4 w-full">
-          <div class="relative rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-6 shadow-sm min-h-[5rem] sm:min-h-[6rem]">
-            <!-- Listening Waveform Animation -->
-            <div v-if="isListening" class="flex items-center justify-center h-[3rem] sm:h-[4rem] gap-[1px] w-full">
-              <div
-                v-for="(height, index) in barHeights"
-                :key="index"
-                class="w-[1.5px] sm:w-[2px] rounded-full bg-neutral-400 dark:bg-neutral-500 transition-all duration-75"
-                :style="{ height: `${height}%` }"
-              />
+          <div class="relative rounded-xl overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <!-- Main text area -->
+            <div class="relative p-4 sm:p-6 min-h-[5rem] sm:min-h-[6rem] bg-neutral-100 dark:bg-neutral-800/50">
+              <!-- Listening Waveform Animation -->
+              <div v-if="isListening" class="flex items-center justify-center h-[3rem] sm:h-[4rem] gap-[1px] w-full">
+                <div
+                  v-for="(height, index) in barHeights"
+                  :key="index"
+                  class="w-[1.5px] sm:w-[2px] rounded-full bg-neutral-400 dark:bg-neutral-500 transition-all duration-75"
+                  :style="{ height: `${height}%` }"
+                />
+              </div>
+              <!-- Typed Text -->
+              <p v-else class="text-base sm:text-lg text-neutral-700 dark:text-neutral-200 min-h-[3rem] sm:min-h-[4rem] text-center pb-6">
+                {{ demoText }}<span v-if="isTyping" class="inline-block w-0.5 h-5 bg-neutral-900 dark:bg-white ml-0.5 animate-pulse" />
+              </p>
+              <!-- Copy button -->
+              <button
+                v-if="!isListening"
+                class="absolute bottom-3 right-3 p-1.5 rounded hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors flex items-center gap-1.5"
+                @click="copyText"
+              >
+                <span v-if="showCopied" class="text-xs text-green-500 font-medium">Copied!</span>
+                <Copy class="size-4" />
+              </button>
             </div>
-            <!-- Typed Text -->
-            <p v-else class="text-base sm:text-lg text-neutral-700 dark:text-neutral-300 min-h-[3rem] sm:min-h-[4rem]">
-              {{ demoText }}<span v-if="isTyping" class="inline-block w-0.5 h-5 bg-neutral-900 dark:bg-white ml-0.5 animate-pulse" />
-            </p>
+            <!-- Bottom bar -->
+            <div class="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-neutral-900 border-t border-neutral-200 dark:border-neutral-700/50">
+              <div class="flex items-center gap-2 text-neutral-500 dark:text-neutral-400">
+                <Settings class="size-4" />
+                <!-- Recording indicator with red dot -->
+                <div v-if="isListening" class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span class="text-sm">Recording</span>
+                </div>
+                <span v-else class="text-sm">Ready</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <!-- Toggle switch -->
+                <button class="relative w-10 h-5 rounded-full bg-neutral-200 dark:bg-neutral-700 transition-colors">
+                  <span class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white dark:bg-neutral-400 shadow transition-transform" />
+                </button>
+                <!-- Mic icon -->
+                <div class="p-1.5 rounded text-neutral-500 dark:text-neutral-400">
+                  <Mic class="size-4" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
