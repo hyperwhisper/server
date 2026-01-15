@@ -42,7 +42,20 @@ const adminLinks = [
 <template>
   <header class="fixed top-0 left-0 right-0 z-50 border-b border-neutral-200 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-sm">
     <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-      <NuxtLink to="/" class="text-lg font-medium tracking-tight">
+      <NuxtLink to="/" class="flex items-center gap-2 text-lg font-medium tracking-tight">
+        <svg viewBox="10 10 85 80" class="w-6 h-6">
+          <defs>
+            <linearGradient id="navWaveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" class="[stop-color:theme(colors.neutral.700)] dark:[stop-color:#e5e5e5]" style="stop-opacity:1" />
+              <stop offset="100%" class="[stop-color:theme(colors.neutral.400)] dark:[stop-color:#737373]" style="stop-opacity:0.6" />
+            </linearGradient>
+          </defs>
+          <g fill="none" stroke="url(#navWaveGradient)" stroke-width="2" stroke-linecap="round">
+            <path d="M20 50 Q20 30, 30 30 Q40 30, 40 50 Q40 70, 30 70 Q20 70, 20 50" opacity="0.4" />
+            <path d="M35 50 Q35 25, 50 25 Q65 25, 65 50 Q65 75, 50 75 Q35 75, 35 50" opacity="0.7" />
+            <path d="M50 50 Q50 20, 70 20 Q90 20, 90 50 Q90 80, 70 80 Q50 80, 50 50" opacity="1" />
+          </g>
+        </svg>
         hyperwhisper
       </NuxtLink>
       <nav class="flex items-center gap-2 sm:gap-4">
