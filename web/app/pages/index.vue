@@ -98,7 +98,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-white dark:bg-black text-neutral-900 dark:text-white overflow-hidden transition-colors duration-300">
+  <div class="min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-white overflow-hidden transition-colors duration-300">
+    <!-- Subtle gradient background -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute -top-[50%] left-[50%] -translate-x-1/2 w-[100%] h-[100%] rounded-full bg-gradient-to-b from-neutral-200/50 dark:from-neutral-800/30 to-transparent blur-3xl" />
+    </div>
+
     <!-- Subtle grain texture overlay -->
     <div class="fixed inset-0 opacity-[0.02] dark:opacity-[0.015] pointer-events-none bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj48ZmlsdGVyIGlkPSJhIiB4PSIwIiB5PSIwIj48ZmVUdXJidWxlbmNlIGJhc2VGcmVxdWVuY3k9Ii43NSIgc3RpdGNoVGlsZXM9InN0aXRjaCIgdHlwZT0iZnJhY3RhbE5vaXNlIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbHRlcj0idXJsKCNhKSIgb3BhY2l0eT0iMSIvPjwvc3ZnPg==')]" />
 
@@ -106,18 +111,18 @@ onUnmounted(() => {
 
     <main class="relative">
       <!-- Hero Section -->
-      <section class="min-h-screen flex flex-col items-center justify-center px-4 pt-16">
+      <section class="min-h-screen flex flex-col items-center justify-center px-4 pt-16 relative">
         <!-- Abstract Logo/Icon -->
         <div class="relative mb-8 sm:mb-12">
           <div class="w-24 h-24 sm:w-32 sm:h-32 relative">
-            <!-- Glowing orb effect -->
-            <div class="absolute inset-0 rounded-full bg-gradient-to-br from-neutral-300 dark:from-white/20 to-transparent blur-2xl" />
+            <!-- Subtle glow -->
+            <div class="absolute inset-0 rounded-full bg-neutral-300/50 dark:bg-white/10 blur-2xl" />
             <svg viewBox="0 0 100 100" class="w-full h-full relative z-10">
               <!-- Sound wave / voice visualization -->
               <defs>
                 <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" class="[stop-color:theme(colors.neutral.800)] dark:[stop-color:#ffffff]" style="stop-opacity:0.9" />
-                  <stop offset="100%" class="[stop-color:theme(colors.neutral.400)] dark:[stop-color:#666666]" style="stop-opacity:0.6" />
+                  <stop offset="0%" class="[stop-color:theme(colors.neutral.700)] dark:[stop-color:#e5e5e5]" style="stop-opacity:1" />
+                  <stop offset="100%" class="[stop-color:theme(colors.neutral.400)] dark:[stop-color:#737373]" style="stop-opacity:0.6" />
                 </linearGradient>
               </defs>
               <g fill="none" stroke="url(#waveGradient)" stroke-width="2" stroke-linecap="round">
@@ -131,11 +136,11 @@ onUnmounted(() => {
 
         <!-- Main Headline -->
         <h1 class="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight text-center mb-4 sm:mb-6">
-          <span class="bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-500 dark:from-white dark:via-white dark:to-neutral-500 bg-clip-text text-transparent">
+          <span class="text-neutral-900 dark:text-white">
             Type 3x faster,
           </span>
           <br />
-          <span class="bg-gradient-to-r from-neutral-600 to-neutral-400 dark:from-neutral-300 dark:to-neutral-600 bg-clip-text text-transparent">
+          <span class="text-neutral-500 dark:text-neutral-400">
             without lifting a finger.
           </span>
         </h1>
@@ -148,7 +153,7 @@ onUnmounted(() => {
 
         <!-- Live Demo Text -->
         <div class="max-w-2xl mx-auto mb-10 sm:mb-14 px-4 w-full">
-          <div class="relative rounded-xl border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.02] p-4 sm:p-6 backdrop-blur-sm min-h-[5rem] sm:min-h-[6rem]">
+          <div class="relative rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-6 shadow-sm min-h-[5rem] sm:min-h-[6rem]">
             <!-- Listening Waveform Animation -->
             <div v-if="isListening" class="flex items-center justify-center h-[3rem] sm:h-[4rem] gap-[1px] w-full">
               <div
@@ -160,7 +165,7 @@ onUnmounted(() => {
             </div>
             <!-- Typed Text -->
             <p v-else class="text-base sm:text-lg text-neutral-700 dark:text-neutral-300 min-h-[3rem] sm:min-h-[4rem]">
-              {{ demoText }}<span v-if="isTyping" class="inline-block w-0.5 h-5 bg-neutral-900/70 dark:bg-white/70 ml-0.5 animate-pulse" />
+              {{ demoText }}<span v-if="isTyping" class="inline-block w-0.5 h-5 bg-neutral-900 dark:bg-white ml-0.5 animate-pulse" />
             </p>
           </div>
         </div>
@@ -169,7 +174,7 @@ onUnmounted(() => {
         <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 px-4 w-full sm:w-auto">
           <Button
             size="lg"
-            class="bg-neutral-900 dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 gap-2 w-full sm:w-auto justify-center"
+            class="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 gap-2 w-full sm:w-auto justify-center transition-colors"
           >
             <Terminal class="size-4" />
             Download for Linux
@@ -181,7 +186,7 @@ onUnmounted(() => {
         </p>
 
         <!-- Mac & Windows Banner -->
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-200 dark:border-white/10 bg-neutral-50 dark:bg-white/[0.02]">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
           <Apple class="size-4 text-neutral-400" />
           <Monitor class="size-4 text-neutral-400" />
           <span class="text-sm text-neutral-500 dark:text-neutral-400">Mac & Windows support coming soon</span>
@@ -189,24 +194,39 @@ onUnmounted(() => {
       </section>
 
       <!-- Features Section -->
-      <section class="py-20 sm:py-32 border-t border-neutral-200 dark:border-white/5">
+      <section class="py-20 sm:py-32 border-t border-neutral-200 dark:border-neutral-800">
         <div class="container mx-auto px-4">
           <div class="grid sm:grid-cols-3 gap-8 sm:gap-12 max-w-4xl mx-auto">
             <div class="text-center sm:text-left">
-              <h3 class="text-lg font-medium mb-2">Hyper Accurate</h3>
-              <p class="text-sm text-neutral-500">
+              <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 mb-4">
+                <svg class="w-5 h-5 text-neutral-600 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 class="text-base font-medium mb-2 text-neutral-900 dark:text-white">Hyper Accurate</h3>
+              <p class="text-sm text-neutral-500 dark:text-neutral-400">
                 Powered by state-of-the-art AI models. Understands accents, jargon, and context.
               </p>
             </div>
             <div class="text-center sm:text-left">
-              <h3 class="text-lg font-medium mb-2">Blazing Fast</h3>
-              <p class="text-sm text-neutral-500">
+              <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 mb-4">
+                <svg class="w-5 h-5 text-neutral-600 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <h3 class="text-base font-medium mb-2 text-neutral-900 dark:text-white">Blazing Fast</h3>
+              <p class="text-sm text-neutral-500 dark:text-neutral-400">
                 Real-time transcription as you speak. No waiting, no delays.
               </p>
             </div>
             <div class="text-center sm:text-left">
-              <h3 class="text-lg font-medium mb-2">Open Source</h3>
-              <p class="text-sm text-neutral-500">
+              <div class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-neutral-100 dark:bg-neutral-800 mb-4">
+                <svg class="w-5 h-5 text-neutral-600 dark:text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+              </div>
+              <h3 class="text-base font-medium mb-2 text-neutral-900 dark:text-white">Open Source</h3>
+              <p class="text-sm text-neutral-500 dark:text-neutral-400">
                 Fully transparent. Audit, contribute, or self-host.
               </p>
             </div>
