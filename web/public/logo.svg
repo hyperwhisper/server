@@ -1,0 +1,14 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sound wave / voice visualization -->
+  <defs>
+    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#404040" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#a3a3a3" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#waveGradient)" stroke-width="2.5" stroke-linecap="round">
+    <path d="M8 50 Q8 22, 22 22 Q36 22, 36 50 Q36 78, 22 78 Q8 78, 8 50" opacity="0.4"/>
+    <path d="M26 50 Q26 14, 50 14 Q74 14, 74 50 Q74 86, 50 86 Q26 86, 26 50" opacity="0.7"/>
+    <path d="M44 50 Q44 8, 72 8 Q95 8, 95 50 Q95 92, 72 92 Q44 92, 44 50" opacity="1"/>
+  </g>
+</svg>
