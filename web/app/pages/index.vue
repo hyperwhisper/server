@@ -4,7 +4,7 @@ import { Apple, Monitor, Terminal, Settings, Copy, Mic } from 'lucide-vue-next'
 useHead({
   title: 'HyperWhisper - Open Source Voice to Text',
   meta: [
-    { name: 'description', content: 'Open source AI-powered voice to text. Fast, private, and runs locally.' }
+    { name: 'description', content: 'Type 3x faster, without lifting a finger' }
   ]
 })
 
