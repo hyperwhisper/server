@@ -22,6 +22,12 @@ UPDATE trial_api_keys SET last_used_at = NOW() WHERE id = $1;
 -- name: RevokeTrialAPIKey :exec
 UPDATE trial_api_keys SET revoked_at = NOW() WHERE id = $1;
 
+-- name: RegenerateTrialAPIKey :one
+UPDATE trial_api_keys
+SET key_hash = $2, key_prefix = $3
+WHERE id = $1
+RETURNING *;
+
 -- name: CountTrialAPIKeys :one
 SELECT COUNT(*) FROM trial_api_keys;
 

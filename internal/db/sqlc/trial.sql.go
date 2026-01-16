@@ -571,6 +571,35 @@ func (q *Queries) ListTrialUsageLogs(ctx context.Context, arg ListTrialUsageLogs
 	return items, nil
 }
 
+const regenerateTrialAPIKey = `-- name: RegenerateTrialAPIKey :one
+UPDATE trial_api_keys
+SET key_hash = $2, key_prefix = $3
+WHERE id = $1
+RETURNING id, key_hash, key_prefix, device_fingerprint, created_at, expires_at, last_used_at, revoked_at
+`
+
+type RegenerateTrialAPIKeyParams struct {
+	ID        uuid.UUID
+	KeyHash   string
+	KeyPrefix string
+}
+
+func (q *Queries) RegenerateTrialAPIKey(ctx context.Context, arg RegenerateTrialAPIKeyParams) (TrialApiKey, error) {
+	row := q.db.QueryRowContext(ctx, regenerateTrialAPIKey, arg.ID, arg.KeyHash, arg.KeyPrefix)
+	var i TrialApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.KeyHash,
+		&i.KeyPrefix,
+		&i.DeviceFingerprint,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.LastUsedAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const revokeTrialAPIKey = `-- name: RevokeTrialAPIKey :exec
 UPDATE trial_api_keys SET revoked_at = NOW() WHERE id = $1
 `

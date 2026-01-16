@@ -162,7 +162,7 @@ func (h *TrialHandler) ProvisionTrialKey(c echo.Context) error {
 	})
 }
 
-// returnExistingTrialKey returns info for an existing trial key
+// returnExistingTrialKey regenerates and returns the key for an existing trial
 func (h *TrialHandler) returnExistingTrialKey(c echo.Context, ctx context.Context, key sqlc.TrialApiKey, limits sqlc.TrialLimit) error {
 	// Check if key is expired
 	expired := time.Now().After(key.ExpiresAt)
@@ -174,6 +174,30 @@ func (h *TrialHandler) returnExistingTrialKey(c echo.Context, ctx context.Contex
 			Details: map[string]string{"upgrade_url": getUpgradeURL()},
 		})
 	}
+
+	// Generate a new key for this device (since we can't retrieve the hashed one)
+	randomBytes := make([]byte, 16)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to generate key"})
+	}
+
+	keyRandom := hex.EncodeToString(randomBytes)
+	fullKey := fmt.Sprintf("hw_trial_%s", keyRandom)
+	keyPrefix := fullKey[:16]
+	keyHash := hashTrialAPIKey(fullKey)
+
+	// Update the key hash in the database
+	updatedKey, err := h.queries.RegenerateTrialAPIKey(ctx, sqlc.RegenerateTrialAPIKeyParams{
+		ID:        key.ID,
+		KeyHash:   keyHash,
+		KeyPrefix: keyPrefix,
+	})
+	if err != nil {
+		log.Printf("[Trial] Failed to regenerate key: %v", err)
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to regenerate key"})
+	}
+
+	log.Printf("[Trial] Regenerated trial key for fingerprint (prefix: %s)", keyPrefix)
 
 	// Get usage summary
 	summary, err := h.queries.GetTrialUsageSummary(ctx, key.ID)
@@ -196,12 +220,12 @@ func (h *TrialHandler) returnExistingTrialKey(c echo.Context, ctx context.Contex
 	quotaExceeded := remainingDuration <= 0 || remainingSessions <= 0
 
 	return c.JSON(http.StatusOK, TrialKeyResponse{
-		// Key is NOT returned for existing keys (security)
-		KeyPrefix:                key.KeyPrefix,
+		Key:                      fullKey, // Return the regenerated key
+		KeyPrefix:                updatedKey.KeyPrefix,
 		RemainingDurationSeconds: remainingDuration,
 		RemainingSessions:        remainingSessions,
 		MaxSessionDuration:       int(limits.MaxSessionDurationSeconds),
-		ExpiresAt:                key.ExpiresAt.Format(time.RFC3339),
+		ExpiresAt:                updatedKey.ExpiresAt.Format(time.RFC3339),
 		QuotaExceeded:            quotaExceeded,
 		Expired:                  expired,
 	})
