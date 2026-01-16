@@ -76,7 +76,7 @@ function typeText(text: string, onComplete: () => void) {
       clearInterval(interval)
       onComplete()
     }
-  }, 40)
+  }, 10)
 }
 
 function cycleTexts() {
