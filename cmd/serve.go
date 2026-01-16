@@ -228,7 +228,9 @@ func setupAPIRoutes(api *echo.Group) {
 	admin.GET("/trial/usage", adminHandler.GetTrialUsageSummary)
 	admin.GET("/trial/limits", adminHandler.GetTrialLimits)
 	admin.PUT("/trial/limits", adminHandler.UpdateTrialLimits)
-	admin.DELETE("/trial/keys/:id", adminHandler.RevokeTrialKey)
+	admin.POST("/trial/keys/:id/revoke", adminHandler.RevokeTrialKey)
+	admin.POST("/trial/keys/:id/unrevoke", adminHandler.UnrevokeTrialKey)
+	admin.DELETE("/trial/keys/:id", adminHandler.DeleteTrialKey)
 	admin.POST("/trial/cleanup", adminHandler.CleanupExpiredTrialKeys)
 }
 

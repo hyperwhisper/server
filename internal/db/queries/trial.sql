@@ -155,3 +155,9 @@ SELECT COUNT(*) FROM trial_usage;
 
 -- name: CleanupExpiredTrialKeys :exec
 UPDATE trial_api_keys SET revoked_at = NOW() WHERE expires_at <= NOW() AND revoked_at IS NULL;
+
+-- name: UnrevokeTrialAPIKey :exec
+UPDATE trial_api_keys SET revoked_at = NULL WHERE id = $1;
+
+-- name: DeleteTrialAPIKey :exec
+DELETE FROM trial_api_keys WHERE id = $1;

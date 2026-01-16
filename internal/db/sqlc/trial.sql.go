@@ -150,6 +150,15 @@ func (q *Queries) CreateTrialUsageLog(ctx context.Context, arg CreateTrialUsageL
 	return i, err
 }
 
+const deleteTrialAPIKey = `-- name: DeleteTrialAPIKey :exec
+DELETE FROM trial_api_keys WHERE id = $1
+`
+
+func (q *Queries) DeleteTrialAPIKey(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteTrialAPIKey, id)
+	return err
+}
+
 const getAllTrialUsageSummary = `-- name: GetAllTrialUsageSummary :one
 SELECT
     COUNT(DISTINCT tak.id) as total_trial_keys,
@@ -568,6 +577,15 @@ UPDATE trial_api_keys SET revoked_at = NOW() WHERE id = $1
 
 func (q *Queries) RevokeTrialAPIKey(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.ExecContext(ctx, revokeTrialAPIKey, id)
+	return err
+}
+
+const unrevokeTrialAPIKey = `-- name: UnrevokeTrialAPIKey :exec
+UPDATE trial_api_keys SET revoked_at = NULL WHERE id = $1
+`
+
+func (q *Queries) UnrevokeTrialAPIKey(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, unrevokeTrialAPIKey, id)
 	return err
 }
 

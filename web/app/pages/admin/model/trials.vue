@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RefreshCw, ChevronLeft, ChevronRight, Trash2, Settings, Sparkles } from 'lucide-vue-next'
+import { RefreshCw, ChevronLeft, ChevronRight, Trash2, Settings, Sparkles, RotateCcw, Ban } from 'lucide-vue-next'
 import type { TrialAPIKey, TrialUsageSummary, TrialLimits, UpdateTrialLimitsRequest } from '~/types/trial'
 import type { PaginatedResponse } from '~/types/deepgram'
 import type { ApiError } from '~/types/auth'
@@ -46,6 +46,14 @@ const limitsError = ref<string | null>(null)
 const showRevokeDialog = ref(false)
 const keyToRevoke = ref<TrialAPIKey | null>(null)
 const isRevoking = ref(false)
+
+// Delete confirmation dialog
+const showDeleteDialog = ref(false)
+const keyToDelete = ref<TrialAPIKey | null>(null)
+const isDeleting = ref(false)
+
+// Unrevoke state
+const isUnrevoking = ref<string | null>(null)
 
 // Cleanup state
 const isCleaningUp = ref(false)
@@ -137,8 +145,8 @@ async function revokeKey() {
   isRevoking.value = true
 
   try {
-    await $fetch(`/api/v1/admin/trial/keys/${keyToRevoke.value.id}`, {
-      method: 'DELETE',
+    await $fetch(`/api/v1/admin/trial/keys/${keyToRevoke.value.id}/revoke`, {
+      method: 'POST',
       headers: getAuthHeaders(),
       credentials: 'include'
     })
@@ -152,6 +160,52 @@ async function revokeKey() {
     keysError.value = apiError?.error || 'Failed to revoke key'
   } finally {
     isRevoking.value = false
+  }
+}
+
+// Unrevoke key
+async function unrevokeKey(key: TrialAPIKey) {
+  isUnrevoking.value = key.id
+
+  try {
+    await $fetch(`/api/v1/admin/trial/keys/${key.id}/unrevoke`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    })
+
+    await fetchKeys()
+    await fetchUsage()
+  } catch (e: any) {
+    const apiError = e.data as ApiError
+    keysError.value = apiError?.error || 'Failed to unrevoke key'
+  } finally {
+    isUnrevoking.value = null
+  }
+}
+
+// Delete key
+async function deleteKey() {
+  if (!keyToDelete.value) return
+
+  isDeleting.value = true
+
+  try {
+    await $fetch(`/api/v1/admin/trial/keys/${keyToDelete.value.id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+      credentials: 'include'
+    })
+
+    showDeleteDialog.value = false
+    keyToDelete.value = null
+    await fetchKeys()
+    await fetchUsage()
+  } catch (e: any) {
+    const apiError = e.data as ApiError
+    keysError.value = apiError?.error || 'Failed to delete key'
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -179,6 +233,11 @@ async function cleanupExpired() {
 function confirmRevoke(key: TrialAPIKey) {
   keyToRevoke.value = key
   showRevokeDialog.value = true
+}
+
+function confirmDelete(key: TrialAPIKey) {
+  keyToDelete.value = key
+  showDeleteDialog.value = true
 }
 
 function openEditLimits() {
@@ -433,13 +492,13 @@ onMounted(() => {
                       </code>
                     </td>
                     <td class="p-4 text-sm text-neutral-500">
-                      {{ new Date(key.created_at).toLocaleDateString() }}
+                      {{ new Date(key.created_at).toISOString().split('T')[0] }}
                     </td>
                     <td class="p-4 text-sm text-neutral-500">
-                      {{ new Date(key.expires_at).toLocaleDateString() }}
+                      {{ new Date(key.expires_at).toISOString().split('T')[0] }}
                     </td>
                     <td class="p-4 text-sm text-neutral-500">
-                      {{ key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never' }}
+                      {{ key.last_used_at ? new Date(key.last_used_at).toISOString().split('T')[0] : 'Never' }}
                     </td>
                     <td class="p-4 text-sm">{{ key.total_sessions }}</td>
                     <td class="p-4 text-sm">{{ formatDuration(key.total_duration_seconds) }}</td>
@@ -449,15 +508,41 @@ onMounted(() => {
                       </Badge>
                     </td>
                     <td class="p-4">
-                      <Button
-                        v-if="getKeyStatus(key) === 'active'"
-                        variant="ghost"
-                        size="sm"
-                        @click="confirmRevoke(key)"
-                        class="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
-                      >
-                        <Trash2 class="size-4" />
-                      </Button>
+                      <div class="flex gap-1">
+                        <!-- Revoke button - only for active keys -->
+                        <Button
+                          v-if="getKeyStatus(key) === 'active'"
+                          variant="ghost"
+                          size="sm"
+                          @click="confirmRevoke(key)"
+                          title="Revoke"
+                          class="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950"
+                        >
+                          <Ban class="size-4" />
+                        </Button>
+                        <!-- Unrevoke button - only for revoked keys -->
+                        <Button
+                          v-if="getKeyStatus(key) === 'revoked'"
+                          variant="ghost"
+                          size="sm"
+                          @click="unrevokeKey(key)"
+                          :disabled="isUnrevoking === key.id"
+                          title="Unrevoke"
+                          class="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                        >
+                          <RotateCcw :class="['size-4', isUnrevoking === key.id && 'animate-spin']" />
+                        </Button>
+                        <!-- Delete button - for all keys -->
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          @click="confirmDelete(key)"
+                          title="Delete"
+                          class="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                        >
+                          <Trash2 class="size-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -522,9 +607,13 @@ onMounted(() => {
             <Button type="button" variant="outline" @click="showEditLimitsDialog = false">
               Cancel
             </Button>
-            <Button type="submit" :disabled="isUpdatingLimits">
+            <button
+              type="submit"
+              class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
+              :disabled="isUpdatingLimits"
+            >
               {{ isUpdatingLimits ? 'Saving...' : 'Save Changes' }}
-            </Button>
+            </button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -536,7 +625,7 @@ onMounted(() => {
         <DialogHeader>
           <DialogTitle>Revoke Trial Key</DialogTitle>
           <DialogDescription>
-            Are you sure you want to revoke trial key <strong>{{ keyToRevoke?.key_prefix }}...</strong>? This action cannot be undone.
+            Are you sure you want to revoke trial key <strong>{{ keyToRevoke?.key_prefix }}...</strong>? The key can be unrevoked later if needed.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -545,6 +634,26 @@ onMounted(() => {
           </Button>
           <Button variant="destructive" @click="revokeKey" :disabled="isRevoking">
             {{ isRevoking ? 'Revoking...' : 'Revoke' }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Delete Confirmation Dialog -->
+    <Dialog v-model:open="showDeleteDialog">
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Trial Key</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to permanently delete trial key <strong>{{ keyToDelete?.key_prefix }}...</strong>? This will also delete all associated usage logs. This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" @click="showDeleteDialog = false">
+            Cancel
+          </Button>
+          <Button variant="destructive" @click="deleteKey" :disabled="isDeleting">
+            {{ isDeleting ? 'Deleting...' : 'Delete' }}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -875,6 +875,65 @@ func (h *AdminHandler) CleanupExpiredTrialKeys(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "expired trial keys cleaned up"})
 }
 
+// UnrevokeTrialKey unrevokes a trial API key (admin only)
+func (h *AdminHandler) UnrevokeTrialKey(c echo.Context) error {
+	keyIDStr := c.Param("id")
+	keyID, err := uuid.Parse(keyIDStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid key ID"})
+	}
+
+	ctx := context.Background()
+
+	// Check if key exists
+	key, err := h.queries.GetTrialAPIKeyByID(ctx, keyID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, ErrorResponse{Error: "trial key not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	// Check if key is actually revoked
+	if !key.RevokedAt.Valid {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "trial key is not revoked"})
+	}
+
+	// Unrevoke the key
+	if err := h.queries.UnrevokeTrialAPIKey(ctx, keyID); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to unrevoke key"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "trial key unrevoked"})
+}
+
+// DeleteTrialKey permanently deletes a trial API key (admin only)
+func (h *AdminHandler) DeleteTrialKey(c echo.Context) error {
+	keyIDStr := c.Param("id")
+	keyID, err := uuid.Parse(keyIDStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid key ID"})
+	}
+
+	ctx := context.Background()
+
+	// Check if key exists
+	_, err = h.queries.GetTrialAPIKeyByID(ctx, keyID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, ErrorResponse{Error: "trial key not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	// Delete the key (cascade will delete usage logs)
+	if err := h.queries.DeleteTrialAPIKey(ctx, keyID); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to delete key"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "trial key deleted"})
+}
+
 // Helper function for trial API key response
 func toTrialAPIKeyResponse(key sqlc.ListAllTrialAPIKeysRow) TrialAPIKeyResponse {
 	resp := TrialAPIKeyResponse{
