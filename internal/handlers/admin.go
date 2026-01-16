@@ -645,3 +645,257 @@ func parseBytesSentAdmin(v interface{}) int64 {
 		return 0
 	}
 }
+
+// ========== TRIAL ADMIN ENDPOINTS ==========
+
+// TrialAPIKeyResponse is the response for trial API key admin queries
+type TrialAPIKeyResponse struct {
+	ID                   string  `json:"id"`
+	KeyPrefix            string  `json:"key_prefix"`
+	DeviceFingerprint    string  `json:"device_fingerprint"`
+	CreatedAt            string  `json:"created_at"`
+	ExpiresAt            string  `json:"expires_at"`
+	LastUsedAt           *string `json:"last_used_at"`
+	RevokedAt            *string `json:"revoked_at"`
+	TotalSessions        int64   `json:"total_sessions"`
+	TotalDurationSeconds float64 `json:"total_duration_seconds"`
+}
+
+// TrialUsageSummaryResponse is the response for trial usage summary
+type TrialUsageSummaryResponse struct {
+	TotalTrialKeys       int64   `json:"total_trial_keys"`
+	ActiveTrialKeys      int64   `json:"active_trial_keys"`
+	TotalSessions        int64   `json:"total_sessions"`
+	TotalDurationSeconds float64 `json:"total_duration_seconds"`
+	TotalBytesSent       int64   `json:"total_bytes_sent"`
+	PeriodStart          string  `json:"period_start"`
+	PeriodEnd            string  `json:"period_end"`
+}
+
+// TrialLimitsResponse is the response for trial limits
+type TrialLimitsResponse struct {
+	MaxDurationSeconds        int    `json:"max_duration_seconds"`
+	MaxSessions               int    `json:"max_sessions"`
+	MaxSessionDurationSeconds int    `json:"max_session_duration_seconds"`
+	ExpiryDays                int    `json:"expiry_days"`
+	UpdatedAt                 string `json:"updated_at"`
+}
+
+// UpdateTrialLimitsRequest is the request for updating trial limits
+type UpdateTrialLimitsRequest struct {
+	MaxDurationSeconds        int `json:"max_duration_seconds"`
+	MaxSessions               int `json:"max_sessions"`
+	MaxSessionDurationSeconds int `json:"max_session_duration_seconds"`
+	ExpiryDays                int `json:"expiry_days"`
+}
+
+// ListTrialAPIKeys returns all trial API keys with usage stats (admin only)
+func (h *AdminHandler) ListTrialAPIKeys(c echo.Context) error {
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	if page < 1 {
+		page = 1
+	}
+
+	perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+
+	offset := (page - 1) * perPage
+	ctx := context.Background()
+
+	total, err := h.queries.CountTrialAPIKeys(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	keys, err := h.queries.ListAllTrialAPIKeys(ctx, sqlc.ListAllTrialAPIKeysParams{
+		Limit:  int32(perPage),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	responses := make([]TrialAPIKeyResponse, len(keys))
+	for i, key := range keys {
+		responses[i] = toTrialAPIKeyResponse(key)
+	}
+
+	totalPages := int(total) / perPage
+	if int(total)%perPage > 0 {
+		totalPages++
+	}
+
+	return c.JSON(http.StatusOK, PaginatedResponse{
+		Data:       responses,
+		Total:      total,
+		Page:       page,
+		PerPage:    perPage,
+		TotalPages: totalPages,
+	})
+}
+
+// GetTrialUsageSummary returns system-wide trial usage statistics (admin only)
+func (h *AdminHandler) GetTrialUsageSummary(c echo.Context) error {
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	endOfMonth := startOfMonth.AddDate(0, 1, 0)
+
+	if startParam := c.QueryParam("start"); startParam != "" {
+		if t, err := time.Parse(time.RFC3339, startParam); err == nil {
+			startOfMonth = t
+		}
+	}
+	if endParam := c.QueryParam("end"); endParam != "" {
+		if t, err := time.Parse(time.RFC3339, endParam); err == nil {
+			endOfMonth = t
+		}
+	}
+
+	ctx := context.Background()
+
+	summary, err := h.queries.GetAllTrialUsageSummary(ctx, sqlc.GetAllTrialUsageSummaryParams{
+		StartDate: startOfMonth,
+		EndDate:   endOfMonth,
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	durationFloat := parseDecimalStringAdmin(summary.TotalDurationSeconds)
+	bytesSent := parseBytesSentAdmin(summary.TotalBytesSent)
+
+	return c.JSON(http.StatusOK, TrialUsageSummaryResponse{
+		TotalTrialKeys:       summary.TotalTrialKeys,
+		ActiveTrialKeys:      summary.ActiveTrialKeys,
+		TotalSessions:        summary.TotalSessions,
+		TotalDurationSeconds: durationFloat,
+		TotalBytesSent:       bytesSent,
+		PeriodStart:          startOfMonth.Format(time.RFC3339),
+		PeriodEnd:            endOfMonth.Format(time.RFC3339),
+	})
+}
+
+// GetTrialLimits returns the current trial limits (admin only)
+func (h *AdminHandler) GetTrialLimits(c echo.Context) error {
+	ctx := context.Background()
+
+	limits, err := h.queries.GetTrialLimits(ctx)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	return c.JSON(http.StatusOK, TrialLimitsResponse{
+		MaxDurationSeconds:        int(limits.MaxDurationSeconds),
+		MaxSessions:               int(limits.MaxSessions),
+		MaxSessionDurationSeconds: int(limits.MaxSessionDurationSeconds),
+		ExpiryDays:                int(limits.ExpiryDays),
+		UpdatedAt:                 limits.UpdatedAt.Time.Format(time.RFC3339),
+	})
+}
+
+// UpdateTrialLimits updates the trial limits (admin only)
+func (h *AdminHandler) UpdateTrialLimits(c echo.Context) error {
+	var req UpdateTrialLimitsRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid request body"})
+	}
+
+	// Validate limits
+	if req.MaxDurationSeconds <= 0 {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "max_duration_seconds must be positive"})
+	}
+	if req.MaxSessions <= 0 {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "max_sessions must be positive"})
+	}
+	if req.MaxSessionDurationSeconds <= 0 {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "max_session_duration_seconds must be positive"})
+	}
+	if req.ExpiryDays <= 0 {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "expiry_days must be positive"})
+	}
+
+	ctx := context.Background()
+
+	limits, err := h.queries.UpdateTrialLimits(ctx, sqlc.UpdateTrialLimitsParams{
+		MaxDurationSeconds:        int32(req.MaxDurationSeconds),
+		MaxSessions:               int32(req.MaxSessions),
+		MaxSessionDurationSeconds: int32(req.MaxSessionDurationSeconds),
+		ExpiryDays:                int32(req.ExpiryDays),
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to update limits"})
+	}
+
+	return c.JSON(http.StatusOK, TrialLimitsResponse{
+		MaxDurationSeconds:        int(limits.MaxDurationSeconds),
+		MaxSessions:               int(limits.MaxSessions),
+		MaxSessionDurationSeconds: int(limits.MaxSessionDurationSeconds),
+		ExpiryDays:                int(limits.ExpiryDays),
+		UpdatedAt:                 limits.UpdatedAt.Time.Format(time.RFC3339),
+	})
+}
+
+// RevokeTrialKey revokes a trial API key (admin only)
+func (h *AdminHandler) RevokeTrialKey(c echo.Context) error {
+	keyIDStr := c.Param("id")
+	keyID, err := uuid.Parse(keyIDStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid key ID"})
+	}
+
+	ctx := context.Background()
+
+	// Check if key exists
+	_, err = h.queries.GetTrialAPIKeyByID(ctx, keyID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, ErrorResponse{Error: "trial key not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "database error"})
+	}
+
+	// Revoke the key
+	if err := h.queries.RevokeTrialAPIKey(ctx, keyID); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to revoke key"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "trial key revoked"})
+}
+
+// CleanupExpiredTrialKeys revokes all expired trial keys (admin only)
+func (h *AdminHandler) CleanupExpiredTrialKeys(c echo.Context) error {
+	ctx := context.Background()
+
+	if err := h.queries.CleanupExpiredTrialKeys(ctx); err != nil {
+		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to cleanup expired keys"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "expired trial keys cleaned up"})
+}
+
+// Helper function for trial API key response
+func toTrialAPIKeyResponse(key sqlc.ListAllTrialAPIKeysRow) TrialAPIKeyResponse {
+	resp := TrialAPIKeyResponse{
+		ID:                   key.ID.String(),
+		KeyPrefix:            key.KeyPrefix,
+		DeviceFingerprint:    key.DeviceFingerprint,
+		CreatedAt:            key.CreatedAt.Time.Format(time.RFC3339),
+		ExpiresAt:            key.ExpiresAt.Format(time.RFC3339),
+		TotalSessions:        key.TotalSessions,
+		TotalDurationSeconds: parseDecimalStringAdmin(key.TotalDurationSeconds),
+	}
+
+	if key.LastUsedAt.Valid {
+		t := key.LastUsedAt.Time.Format(time.RFC3339)
+		resp.LastUsedAt = &t
+	}
+
+	if key.RevokedAt.Valid {
+		t := key.RevokedAt.Time.Format(time.RFC3339)
+		resp.RevokedAt = &t
+	}
+
+	return resp
+}

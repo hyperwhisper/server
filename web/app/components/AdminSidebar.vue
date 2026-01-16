@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Users, Key, LayoutDashboard, BarChart3 } from 'lucide-vue-next'
+import { Users, Key, LayoutDashboard, BarChart3, FlaskConical } from 'lucide-vue-next'
 
 const route = useRoute()
 const { user } = useAuth()
@@ -11,6 +11,7 @@ const adminLinks = [
   { to: '/admin/model/users', label: 'Users', icon: Users },
   { to: '/admin/model/tokens', label: 'Tokens', icon: Key },
   { to: '/admin/model/usage', label: 'Usage', icon: BarChart3 },
+  { to: '/admin/model/trials', label: 'Trials', icon: FlaskConical },
 ]
 
 function isActive(path: string) {

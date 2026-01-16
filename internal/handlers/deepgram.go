@@ -295,6 +295,7 @@ func (h *DeepgramHandler) ListTranscriptionLogs(c echo.Context) error {
 // ========== WEBSOCKET PROXY ==========
 
 // DeepgramProxy handles WebSocket connections and proxies to Deepgram
+// This endpoint handles both regular API keys (hw_live_) and trial keys (hw_trial_)
 func (h *DeepgramHandler) DeepgramProxy(c echo.Context) error {
 	// Extract API key from query param or header
 	apiKey := c.QueryParam("api_key")
@@ -305,6 +306,18 @@ func (h *DeepgramHandler) DeepgramProxy(c echo.Context) error {
 		log.Printf("[Deepgram] No API key provided")
 		return c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "API key required"})
 	}
+
+	// Check if this is a trial key - use the trial handler stored in context
+	if IsTrialKey(apiKey) {
+		log.Printf("[Deepgram] Detected trial key, routing to trial handler")
+		trialHandler := c.Get("trial_handler")
+		if trialHandler == nil {
+			log.Printf("[Deepgram] Trial handler not configured")
+			return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "trial handler not configured"})
+		}
+		return trialHandler.(*TrialHandler).TrialDeepgramProxy(c)
+	}
+
 	log.Printf("[Deepgram] API key received (prefix: %s...)", apiKey[:12])
 
 	// Validate API key and get user

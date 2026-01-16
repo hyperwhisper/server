@@ -184,11 +184,20 @@ func setupAPIRoutes(api *echo.Group) {
 	admin.POST("/tokens/revoke-user/:id", adminHandler.RevokeUserRefreshTokens)
 	admin.POST("/tokens/cleanup", adminHandler.CleanupTokens)
 
+	// Trial handler for trial API keys
+	trialHandler := handlers.NewTrialHandler(db.DB)
+
 	// Deepgram routes
 	deepgramHandler := handlers.NewDeepgramHandler(db.DB)
 
 	// WebSocket endpoint (API key auth, not JWT)
-	api.GET("/deepgram/listen", deepgramHandler.DeepgramProxy)
+	// This handler supports both regular API keys (hw_live_) and trial keys (hw_trial_)
+	// Trial keys are automatically routed to the trial handler
+	api.GET("/deepgram/listen", func(c echo.Context) error {
+		// Inject trial handler into context for trial key routing
+		c.Set("trial_handler", trialHandler)
+		return deepgramHandler.DeepgramProxy(c)
+	})
 
 	// Dashboard WebSocket endpoint (JWT auth via cookie, no API key needed)
 	// This endpoint has a 5-minute session limit and doesn't log to transcription_logs
@@ -203,10 +212,24 @@ func setupAPIRoutes(api *echo.Group) {
 	deepgram.GET("/usage", deepgramHandler.GetUsageSummary)
 	deepgram.GET("/logs", deepgramHandler.ListTranscriptionLogs)
 
+	// Trial routes (public, no JWT required)
+	trial := api.Group("/trial")
+	trial.POST("/provision", trialHandler.ProvisionTrialKey)
+	trial.GET("/usage", trialHandler.GetTrialUsage)
+	trial.GET("/status", trialHandler.GetTrialStatus)
+
 	// Admin Deepgram routes
 	admin.GET("/deepgram/logs", adminHandler.ListAllTranscriptionLogs)
 	admin.GET("/deepgram/keys", adminHandler.ListAllAPIKeys)
 	admin.GET("/deepgram/usage", adminHandler.GetSystemUsageSummary)
+
+	// Admin Trial routes
+	admin.GET("/trial/keys", adminHandler.ListTrialAPIKeys)
+	admin.GET("/trial/usage", adminHandler.GetTrialUsageSummary)
+	admin.GET("/trial/limits", adminHandler.GetTrialLimits)
+	admin.PUT("/trial/limits", adminHandler.UpdateTrialLimits)
+	admin.DELETE("/trial/keys/:id", adminHandler.RevokeTrialKey)
+	admin.POST("/trial/cleanup", adminHandler.CleanupExpiredTrialKeys)
 }
 
 type HealthCheckResponse struct {

@@ -47,6 +47,39 @@ type TranscriptionLog struct {
 	ClientIp        sql.NullString
 }
 
+type TrialApiKey struct {
+	ID                uuid.UUID
+	KeyHash           string
+	KeyPrefix         string
+	DeviceFingerprint string
+	CreatedAt         sql.NullTime
+	ExpiresAt         time.Time
+	LastUsedAt        sql.NullTime
+	RevokedAt         sql.NullTime
+}
+
+type TrialLimit struct {
+	ID                        int32
+	MaxDurationSeconds        int32
+	MaxSessions               int32
+	MaxSessionDurationSeconds int32
+	ExpiryDays                int32
+	UpdatedAt                 sql.NullTime
+}
+
+type TrialUsage struct {
+	ID              uuid.UUID
+	TrialKeyID      uuid.UUID
+	StartedAt       time.Time
+	EndedAt         sql.NullTime
+	DurationSeconds sql.NullString
+	Status          string
+	ErrorMessage    sql.NullString
+	DeepgramParams  json.RawMessage
+	BytesSent       int64
+	ClientIp        sql.NullString
+}
+
 type User struct {
 	ID           uuid.UUID
 	Username     string
