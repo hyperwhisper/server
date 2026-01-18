@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/urfave/cli/v3"
 )
 
@@ -16,78 +19,164 @@ var MigrateCommand = &cli.Command{
 	Commands: []*cli.Command{
 		{
 			Name:      "up",
-			Usage:     "Run migrations up (optionally to a specific version)",
-			ArgsUsage: "[version]",
+			Usage:     "Run migrations up (optionally specify number of steps)",
+			ArgsUsage: "[steps]",
 			Action:    migrateUp,
 		},
 		{
 			Name:      "down",
-			Usage:     "Revert migrations down (optionally to a specific version)",
-			ArgsUsage: "[version]",
+			Usage:     "Revert migrations down (optionally specify number of steps)",
+			ArgsUsage: "[steps]",
 			Action:    migrateDown,
+		},
+		{
+			Name:      "version",
+			Usage:     "Print current migration version",
+			Action:    migrateVersion,
+		},
+		{
+			Name:      "goto",
+			Usage:     "Migrate to a specific version",
+			ArgsUsage: "<version>",
+			Action:    migrateGoto,
 		},
 	},
 }
 
-func getMigrateArgs() []string {
+func getDBURL() string {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		dbURL = "postgres://localhost:5432/hyperwhisper?sslmode=disable"
 	}
-
-	return []string{
-		"-path", "migrations",
-		"-database", dbURL,
-	}
+	return dbURL
 }
 
-func runMigrate(args ...string) error {
-	baseArgs := getMigrateArgs()
-	allArgs := append(baseArgs, args...)
-
-	cmd := exec.Command("migrate", allArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
+func newMigrate() (*migrate.Migrate, error) {
+	return migrate.New("file://migrations", getDBURL())
 }
 
 func migrateUp(ctx context.Context, cmd *cli.Command) error {
+	m, err := newMigrate()
+	if err != nil {
+		return fmt.Errorf("failed to initialize migrate: %w", err)
+	}
+	defer m.Close()
+
 	args := cmd.Args()
 
 	if args.Len() == 0 {
-		// Run all migrations
 		fmt.Println("Running all pending migrations...")
-		return runMigrate("up")
+		err = m.Up()
+	} else {
+		steps, err := strconv.Atoi(args.First())
+		if err != nil {
+			return fmt.Errorf("invalid steps number: %s", args.First())
+		}
+		fmt.Printf("Running %d migration(s) up...\n", steps)
+		err = m.Steps(steps)
 	}
 
-	// Run up to specific version
-	versionStr := args.First()
-	version, err := strconv.Atoi(versionStr)
+	if errors.Is(err, migrate.ErrNoChange) {
+		fmt.Println("No migrations to apply.")
+		return nil
+	}
+
 	if err != nil {
-		return fmt.Errorf("invalid version number: %s", versionStr)
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	fmt.Printf("Running migrations up to version %d...\n", version)
-	return runMigrate("goto", strconv.Itoa(version))
+	fmt.Println("Migrations applied successfully.")
+	return nil
 }
 
 func migrateDown(ctx context.Context, cmd *cli.Command) error {
+	m, err := newMigrate()
+	if err != nil {
+		return fmt.Errorf("failed to initialize migrate: %w", err)
+	}
+	defer m.Close()
+
 	args := cmd.Args()
 
 	if args.Len() == 0 {
-		// Revert all migrations
 		fmt.Println("Reverting all migrations...")
-		return runMigrate("down", "-all")
+		err = m.Down()
+	} else {
+		steps, err := strconv.Atoi(args.First())
+		if err != nil {
+			return fmt.Errorf("invalid steps number: %s", args.First())
+		}
+		fmt.Printf("Reverting %d migration(s)...\n", steps)
+		err = m.Steps(-steps)
 	}
 
-	// Revert to specific version
-	versionStr := args.First()
-	version, err := strconv.Atoi(versionStr)
+	if errors.Is(err, migrate.ErrNoChange) {
+		fmt.Println("No migrations to revert.")
+		return nil
+	}
+
 	if err != nil {
-		return fmt.Errorf("invalid version number: %s", versionStr)
+		return fmt.Errorf("migration failed: %w", err)
 	}
 
-	fmt.Printf("Reverting migrations down to version %d...\n", version)
-	return runMigrate("goto", strconv.Itoa(version))
+	fmt.Println("Migrations reverted successfully.")
+	return nil
+}
+
+func migrateVersion(ctx context.Context, cmd *cli.Command) error {
+	m, err := newMigrate()
+	if err != nil {
+		return fmt.Errorf("failed to initialize migrate: %w", err)
+	}
+	defer m.Close()
+
+	version, dirty, err := m.Version()
+	if errors.Is(err, migrate.ErrNilVersion) {
+		fmt.Println("No migrations have been applied yet.")
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to get version: %w", err)
+	}
+
+	fmt.Printf("Current version: %d", version)
+	if dirty {
+		fmt.Print(" (dirty)")
+	}
+	fmt.Println()
+
+	return nil
+}
+
+func migrateGoto(ctx context.Context, cmd *cli.Command) error {
+	args := cmd.Args()
+	if args.Len() == 0 {
+		return fmt.Errorf("version argument is required")
+	}
+
+	version, err := strconv.ParseUint(args.First(), 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid version number: %s", args.First())
+	}
+
+	m, err := newMigrate()
+	if err != nil {
+		return fmt.Errorf("failed to initialize migrate: %w", err)
+	}
+	defer m.Close()
+
+	fmt.Printf("Migrating to version %d...\n", version)
+	err = m.Migrate(uint(version))
+
+	if errors.Is(err, migrate.ErrNoChange) {
+		fmt.Println("Already at target version.")
+		return nil
+	}
+
+	if err != nil {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	fmt.Println("Migration completed successfully.")
+	return nil
 }

@@ -28,3 +28,9 @@ go.work
 
 tmp/
 postgres-data/
+
+Dockerfile
+docker-compose.yml
+Dockerfile.dev
+docker-compose.prod.yml
+.git/

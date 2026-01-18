@@ -17,7 +17,11 @@ RUN go build -tags prod -o hweb .
 
 # Runtime
 FROM debian:trixie-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN set -ex \
+  && apt update \
+  && apt install -y \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=backend /app/hweb .
 ENV APP_ENV=prod
