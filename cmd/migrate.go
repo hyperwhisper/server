@@ -9,8 +9,10 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/urfave/cli/v3"
+
+	"hyperwhisper/migrations"
 )
 
 var MigrateCommand = &cli.Command{
@@ -52,7 +54,11 @@ func getDBURL() string {
 }
 
 func newMigrate() (*migrate.Migrate, error) {
-	return migrate.New("file://migrations", getDBURL())
+	source, err := iofs.New(migrations.FS, ".")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create source: %w", err)
+	}
+	return migrate.NewWithSourceInstance("iofs", source, getDBURL())
 }
 
 func migrateUp(ctx context.Context, cmd *cli.Command) error {
