@@ -19,7 +19,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: "HyperWhisper - Open Source Voice to Text",
+      title: "hyperwhisper",
       meta: [
         { charset: "utf-8" },
         { name: "viewport", content: "width, initial-scale=1" },
@@ -34,7 +34,7 @@ export default defineNuxtConfig({
         },
         {
           property: "og:title",
-          content: "HyperWhisper - Open Source Voice to Text",
+          content: "hyperwhisper",
         },
         {
           property: "og:description",
@@ -50,7 +50,7 @@ export default defineNuxtConfig({
         },
         {
           property: "og:site_name",
-          content: "HyperWhisper",
+          content: "hyperwhisper",
         },
         // Twitter Card
         {
@@ -59,7 +59,7 @@ export default defineNuxtConfig({
         },
         {
           name: "twitter:title",
-          content: "HyperWhisper - Open Source Voice to Text",
+          content: "hyperwhisper",
         },
         {
           name: "twitter:description",
