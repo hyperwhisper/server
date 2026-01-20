@@ -788,6 +788,12 @@ func buildDeepgramURL(params map[string]string) string {
 
 func checkAllowedOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
+
+	// Allow requests without Origin header (non-browser clients like desktop apps)
+	if origin == "" {
+		return true
+	}
+
 	// Add your allowed origins here
 	allowedOrigins := []string{
 		"https://hyperwhisper.dev",
