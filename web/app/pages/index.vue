@@ -358,13 +358,15 @@ onUnmounted(() => {
         <div
           class="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 px-4 w-full sm:w-auto"
         >
-          <Button
-            size="lg"
-            class="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 gap-2 w-full sm:w-auto justify-center transition-colors"
-          >
-            <Terminal class="size-4" />
-            Download for Linux
-          </Button>
+          <NuxtLink to="/downloads">
+            <Button
+              size="lg"
+              class="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 gap-2 w-full sm:w-auto justify-center transition-colors"
+            >
+              <Terminal class="size-4" />
+              Download for Linux
+            </Button>
+          </NuxtLink>
         </div>
 
         <p class="text-xs text-neutral-400 dark:text-neutral-600 mb-6">
