@@ -24,7 +24,7 @@ async function copyCommand(command: string, id: string) {
 const debInstallCommand = 'sudo dpkg -i hyperwhisper_*.deb'
 const rpmInstallCommand = 'sudo rpm -i hyperwhisper-*.rpm'
 
-const nixBuildCommand = `git clone https://github.com/hyperwhisper/hyperwhisper.git
+const nixBuildCommand = `git clone https://github.com/hyperwhisper/app.git
 cd hyperwhisper
 nix build`
 
@@ -66,7 +66,7 @@ const nixRunCommand = './result/bin/hyperwhisper'
                     For Debian, Ubuntu, Linux Mint, and other Debian-based distributions
                   </p>
                   <a
-                    href="https://github.com/hyperwhisper/hyperwhisper/releases/latest"
+                    href="https://github.com/hyperwhisper/app/releases/latest"
                     target="_blank"
                     rel="noopener"
                     class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors text-sm font-medium"
@@ -110,7 +110,7 @@ const nixRunCommand = './result/bin/hyperwhisper'
                     For Fedora, RHEL, CentOS, openSUSE, and other RPM-based distributions
                   </p>
                   <a
-                    href="https://github.com/hyperwhisper/hyperwhisper/releases/latest"
+                    href="https://github.com/hyperwhisper/app/releases/latest"
                     target="_blank"
                     rel="noopener"
                     class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors text-sm font-medium"
