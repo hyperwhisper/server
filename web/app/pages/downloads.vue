@@ -22,10 +22,10 @@ async function copyCommand(command: string, id: string) {
 }
 
 const debInstallCommand = 'sudo dpkg -i hyperwhisper_*.deb'
-const rpmInstallCommand = 'sudo rpm -i hyperwhisper-*.rpm'
+const rpmInstallCommand = 'sudo dnf install hyperwhisper-*.rpm'
 
 const nixBuildCommand = `git clone https://github.com/hyperwhisper/app.git
-cd hyperwhisper
+cd app
 nix build`
 
 const nixRunCommand = './result/bin/hyperwhisper'
