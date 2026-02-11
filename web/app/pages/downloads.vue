@@ -26,8 +26,7 @@ const rpmInstallCommand = 'sudo dnf install hyperwhisper-*.rpm'
 
 const nixBuildCommand = `git clone https://github.com/hyperwhisper/app.git
 cd app
-nix build
-./result/bin/hyperwhisper`
+nix build`
 
 const nixRunCommand = './result/bin/hyperwhisper'
 
